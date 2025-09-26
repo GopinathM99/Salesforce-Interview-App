@@ -37,28 +37,43 @@ values
     'Integration', 'medium'
   );
 
--- Add a few MCQ examples
-insert into public.questions (question_text, answer_text, choices, correct_choice_index, topic, difficulty)
-values
-  (
-    'Which collection type in Apex maintains insertion order and allows duplicates?',
-    'List maintains insertion order and allows duplicates. Set does not allow duplicates; Map stores key-value pairs.',
-    '["List", "Set", "Map", "sObject"]'::jsonb,
-    0,
-    'Apex','easy'
-  ),
-  (
-    'What is the max number of records that a single SOQL query can return?',
-    '50,000 records per transaction. Use Batch Apex for larger data volumes.',
-    '["10,000", "50,000", "100,000", "250,000"]'::jsonb,
-    1,
-    'SOQL','easy'
-  ),
-  (
-    'Which trigger context variable holds the list of IDs of records that were deleted?',
-    'Trigger.old contains the old version of sObjects; Trigger.oldMap maps Id to old records. For delete triggers, use Trigger.old and Trigger.oldMap (there is no Trigger.new).',
-    '["Trigger.new", "Trigger.old", "Trigger.newMap", "Trigger.size"]'::jsonb,
-    1,
-    'Triggers','medium'
-  );
-
+with mcq_rows as (
+  select *
+  from (
+    values
+      (
+        'Which collection type in Apex maintains insertion order and allows duplicates?',
+        'List maintains insertion order and allows duplicates. Set does not allow duplicates; Map stores key-value pairs.',
+        'Apex',
+        'easy',
+        '["List", "Set", "Map", "sObject"]'::jsonb,
+        0
+      ),
+      (
+        'What is the max number of records that a single SOQL query can return?',
+        '50,000 records per transaction. Use Batch Apex for larger data volumes.',
+        'SOQL',
+        'easy',
+        '["10,000", "50,000", "100,000", "250,000"]'::jsonb,
+        1
+      ),
+      (
+        'Which trigger context variable holds the list of IDs of records that were deleted?',
+        'Trigger.old contains the old version of sObjects; Trigger.oldMap maps Id to old records. For delete triggers, use Trigger.old and Trigger.oldMap (there is no Trigger.new).',
+        'Triggers',
+        'medium',
+        '["Trigger.new", "Trigger.old", "Trigger.newMap", "Trigger.size"]'::jsonb,
+        1
+      )
+  ) as t(question_text, explanation, topic, difficulty, choices, correct_choice_index)
+),
+inserted_questions as (
+  insert into public.questions (question_text, answer_text, topic, difficulty)
+  select question_text, explanation, topic, difficulty
+  from mcq_rows
+  returning id, question_text, answer_text
+)
+insert into public.multiple_choice_questions (question_id, choices, correct_choice_index, explanation)
+select iq.id, mr.choices, mr.correct_choice_index, mr.explanation
+from inserted_questions iq
+join mcq_rows mr on mr.question_text = iq.question_text;

@@ -9,15 +9,43 @@ create or replace function public.random_questions(
   mcq_only boolean default false,
   include_attempted boolean default false
 )
-returns setof public.questions
+returns table (
+  id uuid,
+  question_text text,
+  answer_text text,
+  topic text,
+  difficulty public.difficulty_level,
+  created_at timestamptz,
+  mcq jsonb
+)
 language sql
 stable
 as $$
-  select *
+  select
+    q.id,
+    q.question_text,
+    q.answer_text,
+    q.topic,
+    q.difficulty,
+    q.created_at,
+    case
+      when mcq.id is null then null
+      else jsonb_build_object(
+        'id', mcq.id,
+        'question_id', mcq.question_id,
+        'choices', mcq.choices,
+        'correct_choice_index', mcq.correct_choice_index,
+        'explanation', mcq.explanation,
+        'shuffle_options', mcq.shuffle_options,
+        'created_at', mcq.created_at,
+        'updated_at', mcq.updated_at
+      )
+    end as mcq
   from public.questions q
+  left join public.multiple_choice_questions mcq on mcq.question_id = q.id
   where (topics is null or q.topic = any(topics))
     and (difficulties is null or q.difficulty::text = any(difficulties))
-    and (not mcq_only or (q.choices is not null and q.correct_choice_index is not null))
+    and (not mcq_only or mcq.id is not null)
     and (
       include_attempted
       or not exists (

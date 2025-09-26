@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { Question } from "@/lib/types";
+import type { Question, RawQuestion } from "@/lib/types";
+import { normalizeQuestion } from "@/lib/types";
 import QuestionForm from "@/components/QuestionForm";
 import ImportExportPanel from "@/components/ImportExportPanel";
 
@@ -48,10 +49,17 @@ export default function AdminPage() {
 
   const loadItems = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from("questions").select("*").order("created_at", { ascending: false }).limit(50);
+    let q = supabase
+      .from("questions")
+      .select("*, multiple_choice_questions(*)")
+      .order("created_at", { ascending: false })
+      .limit(50);
     if (topicFilter) q = q.eq("topic", topicFilter);
     const { data, error } = await q;
-    if (!error) setItems((data as Question[]) ?? []);
+    if (!error) {
+      const rows = (data as RawQuestion[] | null) ?? [];
+      setItems(rows.map((row) => normalizeQuestion(row)));
+    }
     setLoading(false);
   }, [topicFilter]);
 
@@ -64,8 +72,8 @@ export default function AdminPage() {
 
   const filteredItems = useMemo(() => {
     if (typeFilter === "all") return items;
-    if (typeFilter === "mcq") return items.filter((i) => Array.isArray(i.choices) && i.correct_choice_index !== null);
-    return items.filter((i) => !Array.isArray(i.choices) || i.correct_choice_index === null);
+    if (typeFilter === "mcq") return items.filter((i) => Boolean(i.mcq));
+    return items.filter((i) => !i.mcq);
   }, [items, typeFilter]);
 
   const onDelete = async (id: string) => {
@@ -152,7 +160,7 @@ export default function AdminPage() {
                       <div className="row" style={{ gap: 8 }}>
                         <span className="pill">{q.topic}</span>
                         <span className="pill">{q.difficulty}</span>
-                        {Array.isArray(q.choices) && q.correct_choice_index !== null && <span className="pill">MCQ</span>}
+                        {q.mcq && <span className="pill">MCQ</span>}
                       </div>
                       <strong style={{ marginTop: 6 }}>{q.question_text}</strong>
                     </div>
