@@ -1,6 +1,0 @@
-{
-  "/add-questions/page": "app/add-questions/page.js",
-  "/flashcards/page": "app/flashcards/page.js",
-  "/page": "app/page.js",
-  "/mcq/page": "app/mcq/page.js"
-}
