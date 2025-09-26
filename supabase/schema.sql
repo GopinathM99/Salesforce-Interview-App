@@ -60,8 +60,6 @@ create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   question_text text not null,
   answer_text text,
-  choices jsonb, -- array of text, e.g. ["A", "B", "C", "D"]
-  correct_choice_index int, -- 0-based index into choices
   topic text not null,
   difficulty public.difficulty_level not null default 'medium',
   created_at timestamptz not null default now()
@@ -70,6 +68,35 @@ create table if not exists public.questions (
 -- Indexes for filtering
 create index if not exists idx_questions_topic on public.questions (topic);
 create index if not exists idx_questions_difficulty on public.questions (difficulty);
+
+create table if not exists public.multiple_choice_questions (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid not null references public.questions (id) on delete cascade,
+  choices jsonb not null,
+  correct_choice_index int not null,
+  explanation text,
+  shuffle_options boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint multiple_choice_questions_unique_question unique (question_id),
+  constraint multiple_choice_questions_choices_array check (jsonb_typeof(choices) = 'array'),
+  constraint multiple_choice_questions_min_choices check (
+    case jsonb_typeof(choices)
+      when 'array' then jsonb_array_length(choices) >= 2
+      else false
+    end
+  ),
+  constraint multiple_choice_questions_correct_idx_range check (
+    case jsonb_typeof(choices)
+      when 'array' then correct_choice_index >= 0
+        and correct_choice_index < jsonb_array_length(choices)
+      else false
+    end
+  )
+);
+
+create index if not exists idx_multiple_choice_questions_question_id
+  on public.multiple_choice_questions (question_id);
 
 -- Track which user has attempted which question
 create table if not exists public.question_attempts (
@@ -126,6 +153,21 @@ create policy "Questions are readable by anyone"
 drop policy if exists "Only authenticated can modify questions" on public.questions;
 create policy "Only authenticated can modify questions"
   on public.questions for all
+  to authenticated
+  using (true)
+  with check (true);
+
+alter table public.multiple_choice_questions enable row level security;
+
+drop policy if exists "MCQs are readable by anyone" on public.multiple_choice_questions;
+create policy "MCQs are readable by anyone"
+  on public.multiple_choice_questions for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Only authenticated can modify MCQs" on public.multiple_choice_questions;
+create policy "Only authenticated can modify MCQs"
+  on public.multiple_choice_questions for all
   to authenticated
   using (true)
   with check (true);

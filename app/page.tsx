@@ -45,17 +45,35 @@ export default function Page() {
           <div className="card">
             <h3>Flash Cards</h3>
             <p>Reveal answers, swipe through, and focus on understanding.</p>
-            <Link className="btn primary" href="/flashcards">Start Flashcards</Link>
+            <Link
+              className="btn primary"
+              href="/flashcards"
+              style={{ marginTop: 12, display: "inline-block" }}
+            >
+              Start Flashcards
+            </Link>
           </div>
           <div className="card">
             <h3>Multiple Choice</h3>
             <p>Pick the right option and get instant feedback.</p>
-            <Link className="btn primary" href="/mcq">Start MCQs</Link>
+            <Link
+              className="btn primary"
+              href="/mcq"
+              style={{ marginTop: 12, display: "inline-block" }}
+            >
+              Start MCQs
+            </Link>
           </div>
           <div className="card">
-            <h3>Create New Questions</h3>
-            <p>Partner with Google Gemini to draft fresh interview prompts for your database.</p>
-            <Link className="btn primary" href="/add-questions">Add More Questions to the Database</Link>
+            <h3>Try New Questions</h3>
+            <p>Attempt new knowledge, scenario based, or coding questions with Gemini.</p>
+            <Link
+              className="btn primary"
+              href="/add-questions"
+              style={{ marginTop: 12, display: "inline-block" }}
+            >
+              Live Gemini Chat
+            </Link>
           </div>
           <div className="card">
             <h3>Reset Progress</h3>

@@ -32,7 +32,7 @@ Open http://localhost:3000 to use the app.
 - Enable Email/Password in Supabase Authentication.
 - Create an admin user in the Supabase dashboard (Authentication → Users).
 - Visit `/admin` and sign in using that account.
-- Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index.
+- Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
 
 **CSV Import/Export**
@@ -41,8 +41,8 @@ Open http://localhost:3000 to use the app.
 - Export downloads `questions_export.csv` with columns:
   - `id` (optional on import; if present, upserts by id)
   - `question_text`, `answer_text`, `topic`, `difficulty` (easy|medium|hard)
-  - `choices` (either JSON array like `["A","B"]` or pipe-separated like `A|B|C|D`)
-  - `correct_choice_index` (0-based index)
+  - `choices` (either JSON array like `["A","B"]` or pipe-separated like `A|B|C|D`; mapped to the MCQ table)
+  - `correct_choice_index` (0-based index for the correct choice)
 - Import will upsert in batches. Rows missing `question_text` or `topic` are ignored. Difficulty defaults to `medium` if invalid.
 - See `supabase/sample.csv` for an example format.
 
@@ -52,15 +52,24 @@ Open http://localhost:3000 to use the app.
   - `id uuid` (PK)
   - `question_text text`
   - `answer_text text`
-  - `choices jsonb` (array of strings for MCQs)
-  - `correct_choice_index int` (0-based index)
   - `topic text`
   - `difficulty difficulty_level` (`easy|medium|hard`)
   - `created_at timestamptz`
 
+- Table `public.multiple_choice_questions`
+  - `id uuid` (PK)
+  - `question_id uuid` (FK → `questions.id`, unique)
+  - `choices jsonb` (array of option strings)
+  - `correct_choice_index int`
+  - `explanation text`
+  - `shuffle_options boolean`
+  - `created_at timestamptz`
+  - `updated_at timestamptz`
+
 - RPC `public.random_questions(n, topics, difficulties, mcq_only)`
   - Returns `n` random rows, optionally filtered by topic/difficulty.
-  - When `mcq_only = true`, only returns rows with `choices` and `correct_choice_index`.
+  - Includes an `mcq` JSON blob when the question has MCQ metadata.
+  - When `mcq_only = true`, only returns rows with MCQ metadata.
 
 **RLS Policies**
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { Difficulty, Question } from "@/lib/types";
+import type { Difficulty, Question, RawQuestion } from "@/lib/types";
+import { normalizeQuestion } from "@/lib/types";
 
 type Props = {
   initial?: Partial<Question>;
@@ -16,14 +17,10 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
   const [answerText, setAnswerText] = useState(initial?.answer_text ?? "");
   const [topic, setTopic] = useState(initial?.topic ?? "");
   const [difficulty, setDifficulty] = useState<Difficulty>((initial?.difficulty as Difficulty) ?? "medium");
-  const [isMcq, setIsMcq] = useState<boolean>(
-    Boolean((initial?.choices as string[] | undefined)?.length) || typeof initial?.correct_choice_index === "number"
-  );
-  const initialChoices = Array.isArray(initial?.choices) ? [...(initial?.choices as string[])] : ["", ""];
+  const [isMcq, setIsMcq] = useState<boolean>(Boolean(initial?.mcq));
+  const initialChoices = initial?.mcq ? [...initial.mcq.choices] : ["", ""];
   const [choices, setChoices] = useState<string[]>(initialChoices);
-  const [correctIdx, setCorrectIdx] = useState<string>(
-    typeof initial?.correct_choice_index === "number" ? String(initial.correct_choice_index) : ""
-  );
+  const [correctIdx, setCorrectIdx] = useState<string>(initial?.mcq ? String(initial.mcq.correct_choice_index) : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,35 +47,62 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
     setSaving(true);
     setError(null);
     try {
-      const payload: {
-        question_text: string;
-        answer_text: string | null;
-        topic: string;
-        difficulty: Difficulty;
-        choices: string[] | null;
-        correct_choice_index: number | null;
-      } = {
+      const cleanQuestion = {
         question_text: questionText.trim(),
         answer_text: answerText.trim() || null,
         topic: topic.trim(),
-        difficulty,
-        choices: null,
-        correct_choice_index: null
+        difficulty
       };
-      if (isMcq) {
-        const cleanChoices = choices.map((c) => c.trim()).filter(Boolean);
-        payload.choices = cleanChoices;
-        payload.correct_choice_index = Number(correctIdx);
+
+      let questionId = initial?.id ?? null;
+
+      if (questionId) {
+        const { error } = await supabase
+          .from("questions")
+          .update(cleanQuestion)
+          .eq("id", questionId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("questions")
+          .insert(cleanQuestion)
+          .select("id")
+          .single();
+        if (error) throw error;
+        questionId = data?.id ?? null;
       }
 
-      let result;
-      if (initial?.id) {
-        result = await supabase.from("questions").update(payload).eq("id", initial.id).select("*").single();
-      } else {
-        result = await supabase.from("questions").insert(payload).select("*").single();
+      if (!questionId) throw new Error("Question ID missing after save");
+
+      if (isMcq) {
+        const cleanChoices = choices.map((c) => c.trim()).filter(Boolean);
+        const correctIndex = Number(correctIdx);
+        const mcqPayload = {
+          question_id: questionId,
+          choices: cleanChoices,
+          correct_choice_index: correctIndex,
+          explanation: answerText.trim() || null,
+          shuffle_options: initial?.mcq?.shuffle_options ?? false
+        };
+        const { error: mcqError } = await supabase
+          .from("multiple_choice_questions")
+          .upsert(mcqPayload, { onConflict: "question_id" });
+        if (mcqError) throw mcqError;
+      } else if (initial?.mcq) {
+        const { error: deleteError } = await supabase
+          .from("multiple_choice_questions")
+          .delete()
+          .eq("question_id", questionId);
+        if (deleteError) throw deleteError;
       }
-      if (result.error) throw result.error;
-      onSaved?.(result.data as Question);
+
+      const { data: refreshed, error: refreshError } = await supabase
+        .from("questions")
+        .select("*, multiple_choice_questions(*)")
+        .eq("id", questionId)
+        .single();
+      if (refreshError) throw refreshError;
+      onSaved?.(normalizeQuestion(refreshed as RawQuestion));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       setError(message);

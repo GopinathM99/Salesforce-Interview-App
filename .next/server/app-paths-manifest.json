@@ -1,6 +1,6 @@
 {
-  "/page": "app/page.js",
   "/add-questions/page": "app/add-questions/page.js",
-  "/api/gemini/route": "app/api/gemini/route.js",
-  "/flashcards/page": "app/flashcards/page.js"
+  "/flashcards/page": "app/flashcards/page.js",
+  "/page": "app/page.js",
+  "/mcq/page": "app/mcq/page.js"
 }

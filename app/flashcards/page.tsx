@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { Difficulty, Question } from "@/lib/types";
+import type { Difficulty, Question, RawQuestion } from "@/lib/types";
+import { normalizeQuestion } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 
 type Filters = {
@@ -65,9 +66,10 @@ export default function FlashcardsPage() {
       setError(error.message);
       setQ(null);
     } else {
-      const nextQuestion = (data as Question[] | null)?.[0] ?? null;
-      setQ(nextQuestion);
-      if (!nextQuestion) {
+      const nextQuestionRaw = (data as RawQuestion[] | null)?.[0] ?? null;
+      const normalized = nextQuestionRaw ? normalizeQuestion(nextQuestionRaw) : null;
+      setQ(normalized);
+      if (!normalized) {
         setInfo(
           userId
             ? "You're all caught up! You've attempted every matching flashcard."

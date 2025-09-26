@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { Difficulty, Question } from "@/lib/types";
+import type { Difficulty, Question, RawQuestion } from "@/lib/types";
+import { normalizeQuestion } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function McqPage() {
@@ -39,14 +40,20 @@ export default function McqPage() {
       setError(error.message);
       setQ(null);
     } else {
-      const item = (data as Question[] | null)?.[0] ?? null;
-      setQ(item);
-      if (!item) {
+      const itemRaw = (data as RawQuestion[] | null)?.[0] ?? null;
+      const normalized = itemRaw ? normalizeQuestion(itemRaw) : null;
+      if (!normalized) {
         setInfo(
           userId
             ? "You're all caught up! You've attempted every matching question."
             : "No MCQ found. Add choices in Supabase."
         );
+        setQ(null);
+      } else if (!normalized.mcq) {
+        setInfo("Question is missing MCQ choices. Update it in the admin panel.");
+        setQ(null);
+      } else {
+        setQ(normalized);
       }
     }
     setLoading(false);
@@ -65,8 +72,8 @@ export default function McqPage() {
   }, []);
 
   const submit = async () => {
-    if (q == null || selected == null || q.correct_choice_index == null) return;
-    const isCorrect = selected === q.correct_choice_index;
+    if (q == null || selected == null || !q.mcq) return;
+    const isCorrect = selected === q.mcq.correct_choice_index;
     setStatus(isCorrect ? "correct" : "incorrect");
 
     if (!userId) return;
@@ -92,8 +99,8 @@ export default function McqPage() {
 
   const choiceClass = (idx: number) => {
     if (status === "idle") return selected === idx ? "selected" : "";
-    if (q?.correct_choice_index === idx) return "correct";
-    if (selected === idx && q?.correct_choice_index !== idx) return "incorrect";
+    if (q?.mcq?.correct_choice_index === idx) return "correct";
+    if (selected === idx && q?.mcq?.correct_choice_index !== idx) return "incorrect";
     return "";
   };
 
@@ -133,9 +140,6 @@ export default function McqPage() {
               <option value="hard">Hard</option>
             </select>
           </div>
-          <button className="btn" onClick={() => void loadRandom()} disabled={loading}>
-            {loading ? "Loading…" : "New Question"}
-          </button>
         </div>
 
         {error && <p className="muted">Error: {error}</p>}
@@ -150,7 +154,7 @@ export default function McqPage() {
             </div>
             <h3 style={{ marginTop: 8 }}>{q.question_text}</h3>
             <ul className="clean" style={{ marginTop: 12 }}>
-              {(q.choices ?? []).map((c, idx) => (
+              {(q.mcq?.choices ?? []).map((c, idx) => (
                 <li
                   key={idx}
                   className={choiceClass(idx)}
@@ -169,8 +173,8 @@ export default function McqPage() {
               >
                 {savingAttempt ? "Saving…" : "Submit"}
               </button>
-              <button className="btn" onClick={() => void loadRandom()}>
-                Next Random
+              <button className="btn" onClick={() => void loadRandom()} disabled={loading}>
+                {loading ? "Loading…" : "Next Random"}
               </button>
             </div>
             {status !== "idle" && (
@@ -180,9 +184,9 @@ export default function McqPage() {
                 ) : (
                   <>
                     <span className="pill" style={{ borderColor: "#7a1b1b" }}>Incorrect</span>
-                    {q.answer_text && (
+                    {(q.mcq?.explanation ?? q.answer_text) && (
                       <p style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
-                        <strong>Explanation: </strong>{q.answer_text}
+                        <strong>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
                       </p>
                     )}
                   </>
