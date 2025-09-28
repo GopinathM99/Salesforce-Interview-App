@@ -1,8 +1,70 @@
--- Run this in Supabase SQL editor
 -- Schema: questions + enum + helpful indexes
 
 -- Enable needed extensions
 create extension if not exists pgcrypto;
+create extension if not exists citext;
+
+-- Table of admin accounts identified by email
+create table if not exists public.admin_users (
+  email citext primary key,
+  first_name text,
+  last_name text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_users
+  add column if not exists first_name text;
+
+alter table public.admin_users
+  add column if not exists last_name text;
+
+alter table public.admin_users
+  add column if not exists is_primary boolean not null default false;
+
+create unique index if not exists admin_users_primary_one
+  on public.admin_users (is_primary)
+  where is_primary;
+
+grant select, insert, update, delete on table public.admin_users to authenticated;
+
+drop function if exists public.is_admin() cascade;
+drop function if exists public.current_user_email() cascade;
+
+create or replace function public.current_user_email()
+returns citext
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select nullif(auth.jwt() ->> 'email', '')::citext;
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users au
+    where au.email = public.current_user_email()
+  );
+$$;
+
+grant execute on function public.current_user_email() to anon, authenticated;
+grant execute on function public.is_admin() to anon, authenticated;
+
+alter table public.admin_users enable row level security;
+
+drop policy if exists "Admins can manage admin users" on public.admin_users;
+create policy "Admins can manage admin users"
+  on public.admin_users for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- PostgreSQL does not support `CREATE TYPE IF NOT EXISTS`.
 -- Use a DO block to create the enum only if it doesn't already exist.
@@ -151,11 +213,12 @@ create policy "Questions are readable by anyone"
 
 -- Optional: restrict inserts/updates/deletes to authenticated users only (adjust as needed)
 drop policy if exists "Only authenticated can modify questions" on public.questions;
-create policy "Only authenticated can modify questions"
+drop policy if exists "Only admins can modify questions" on public.questions;
+create policy "Only admins can modify questions"
   on public.questions for all
   to authenticated
-  using (true)
-  with check (true);
+  using (public.is_admin())
+  with check (public.is_admin());
 
 alter table public.multiple_choice_questions enable row level security;
 
@@ -166,8 +229,9 @@ create policy "MCQs are readable by anyone"
   using (true);
 
 drop policy if exists "Only authenticated can modify MCQs" on public.multiple_choice_questions;
-create policy "Only authenticated can modify MCQs"
+drop policy if exists "Only admins can modify MCQs" on public.multiple_choice_questions;
+create policy "Only admins can modify MCQs"
   on public.multiple_choice_questions for all
   to authenticated
-  using (true)
-  with check (true);
+  using (public.is_admin())
+  with check (public.is_admin());

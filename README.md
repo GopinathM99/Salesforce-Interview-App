@@ -31,7 +31,10 @@ Open http://localhost:3000 to use the app.
 
 - Enable Email/Password in Supabase Authentication.
 - Create an admin user in the Supabase dashboard (Authentication → Users).
+- Add the admin’s login email plus their first and last name to the `public.admin_users` table. Run this once per admin in the SQL editor:
+  - `insert into public.admin_users (email, first_name, last_name) values ('you@example.com', 'You', 'Example');`
 - Visit `/admin` and sign in using that account.
+- Use the “Admin Users” card on `/admin` to add or remove additional admins by entering their first name, last name, and login email.
 - Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
 
