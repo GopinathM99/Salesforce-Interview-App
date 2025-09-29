@@ -38,17 +38,6 @@ Open http://localhost:3000 to use the app.
 - Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
 
-**CSV Import/Export**
-
-- On `/admin`, use the "CSV Import/Export" panel.
-- Export downloads `questions_export.csv` with columns:
-  - `id` (optional on import; if present, upserts by id)
-  - `question_text`, `answer_text`, `topic`, `difficulty` (easy|medium|hard)
-  - `choices` (either JSON array like `["A","B"]` or pipe-separated like `A|B|C|D`; mapped to the MCQ table)
-  - `correct_choice_index` (0-based index for the correct choice)
-- Import will upsert in batches. Rows missing `question_text` or `topic` are ignored. Difficulty defaults to `medium` if invalid.
-- See `supabase/sample.csv` for an example format.
-
 **Database Design**
 
 - Table `public.questions`

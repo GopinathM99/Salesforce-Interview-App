@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminAccessShell from "@/components/AdminAccessShell";
 import type { UseAdminAccessResult } from "@/lib/useAdminAccess";
@@ -198,11 +199,10 @@ function Content({ ctx }: ContentProps) {
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <h2 className="title">Admin Users</h2>
-          <button className="btn" onClick={() => void ctx.signOut()}>Sign Out</button>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Link className="btn" href="/admin">Back to Admin Home Page</Link>
+          </div>
         </div>
-        {ctx.currentUserEmail && (
-          <p className="muted" style={{ marginBottom: 12 }}>Signed in as {ctx.currentUserEmail}</p>
-        )}
         <p className="muted">
           Add colleagues who should manage content. Exactly one admin must be marked as primary, and the primary
           account cannot be removed.

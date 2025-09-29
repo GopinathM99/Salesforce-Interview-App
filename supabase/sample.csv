@@ -1,4 +1,0 @@
-id,question_text,answer_text,topic,difficulty,choices,correct_choice_index,created_at
-,"What is a Governor Limit in Salesforce Apex and why does it exist?","Governor Limits are runtime limits enforced by Salesforce to ensure multi-tenant stability.",Apex,easy,,,
-,"Which collection type in Apex maintains insertion order and allows duplicates?","List maintains insertion order and allows duplicates.",Apex,easy,"List|Set|Map|sObject",0,
-,"What is the max number of records that a single SOQL query can return?","50,000 records per transaction.",SOQL,easy,"10,000|50,000|100,000|250,000",1,
