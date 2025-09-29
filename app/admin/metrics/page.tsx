@@ -28,6 +28,7 @@ type ContentProps = {
 };
 
 function Content({ ctx: _ctx }: ContentProps) {
+  void _ctx;
   const [rows, setRows] = useState<MetricsRow[]>([]);
   const [difficultyOrder, setDifficultyOrder] = useState<string[]>([...defaultDifficultyOrder]);
   const [loading, setLoading] = useState(false);

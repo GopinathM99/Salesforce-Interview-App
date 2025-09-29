@@ -33,7 +33,7 @@ const tiles = [
 export default function AdminHomePage() {
   return (
     <AdminAccessShell>
-      {(ctx) => (
+      {() => (
         <div className="admin-stack">
           <div className="card">
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>

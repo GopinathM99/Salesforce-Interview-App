@@ -99,6 +99,7 @@ type ContentProps = {
 };
 
 function Content({ ctx: _ctx }: ContentProps) {
+  void _ctx;
   const [topics, setTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);

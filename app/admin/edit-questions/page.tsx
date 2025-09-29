@@ -24,6 +24,7 @@ type ContentProps = {
 };
 
 function Content({ ctx: _ctx }: ContentProps) {
+  void _ctx;
   const [topics, setTopics] = useState<string[]>([]);
   const [topicFilter, setTopicFilter] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
