@@ -1,3 +1,11 @@
+-- Ensure a default primary admin exists
+insert into public.admin_users (email, first_name, last_name, is_primary)
+values ('gopinath.merugumala@example.com', 'Gopinath', 'Merugumala', true)
+on conflict (email) do update
+set first_name = excluded.first_name,
+    last_name = excluded.last_name,
+    is_primary = true;
+
 -- Seed a handful of Salesforce dev interview questions
 insert into public.questions (question_text, answer_text, topic, difficulty)
 values
@@ -7,64 +15,64 @@ values
     'Apex', 'easy'
   ),
   (
-    'When should you use a before trigger vs an after trigger?',
-    'Use before triggers to set field values or validate data before saving (no DML needed). Use after triggers when you need record Ids or to perform operations that require the record to be committed, like creating related records.',
-    'Triggers', 'medium'
-  ),
-  (
-    'Explain the difference between SOQL and SOSL.',
-    'SOQL queries specific objects/fields with filtering; returns records. SOSL performs text search across objects/fields; returns lists of sObjects with text matches. Use SOSL for unstructured keyword search, SOQL for structured queries.',
-    'SOQL', 'easy'
-  ),
-  (
-    'What is the order of execution for a DML operation in Salesforce?',
-    'System validation, before triggers, custom validation, duplicate rules, after triggers, assignment rules, auto-response, workflow (and field updates), processes/flows, escalation rules, roll-up summary updates, sharing recalculation, post-commit logic.',
-    'Triggers', 'hard'
-  ),
-  (
-    'How do you prevent recursion in triggers?',
-    'Use static variables, handler patterns with state flags, or platform features like Trigger.new/old comparison. Guard DML and future logic from re-entry using a static set/map or a Trigger Framework.',
-    'Triggers', 'medium'
-  ),
-  (
-    'What is the difference between Queueable, Future, Batchable, and Schedulable Apex?',
-    'Future: simple async, no chaining, limited parameters. Queueable: async with chaining and complex types. Batchable: process large data in chunks with execute per batch. Schedulable: schedule jobs to run at specific times (often to kick off Batchable).',
-    'Async', 'medium'
-  ),
-  (
     'How do you call an external REST service from Apex and handle limits?',
     'Use HttpRequest/Http classes with a named credential where possible. Respect callout limits (max 100 per transaction), set timeouts, use queueable/future for async, and handle retries/backoffs.',
     'Integration', 'medium'
   );
 
+
 with mcq_rows as (
   select *
   from (
     values
-      (
-        'Which collection type in Apex maintains insertion order and allows duplicates?',
-        'List maintains insertion order and allows duplicates. Set does not allow duplicates; Map stores key-value pairs.',
-        'Apex',
-        'easy',
-        '["List", "Set", "Map", "sObject"]'::jsonb,
-        0
-      ),
-      (
-        'What is the max number of records that a single SOQL query can return?',
-        '50,000 records per transaction. Use Batch Apex for larger data volumes.',
-        'SOQL',
-        'easy',
-        '["10,000", "50,000", "100,000", "250,000"]'::jsonb,
-        1
-      ),
-      (
-        'Which trigger context variable holds the list of IDs of records that were deleted?',
-        'Trigger.old contains the old version of sObjects; Trigger.oldMap maps Id to old records. For delete triggers, use Trigger.old and Trigger.oldMap (there is no Trigger.new).',
-        'Triggers',
-        'medium',
-        '["Trigger.new", "Trigger.old", "Trigger.newMap", "Trigger.size"]'::jsonb,
-        1
-      )
+    (
+      'Your company is setting up SSO between its main Salesforce org (IdP) and a newly acquired company''s org (SP). What is the best approach for configuration and user mapping?',
+      'To configure SSO, I would first enable My Domain in the IdP org and then enable it as an Identity Provider. In the SP org, I would configure SAML settings, using the metadata from the IdP org to establish the trust relationship. For user mapping, I would use the Federation ID on the user records in both orgs as the unique identifier to link the accounts, ensuring a seamless login experience.',
+      'SSO and IDP',
+      'medium'::public.difficulty_level,
+      '["Use a Connected App with OAuth for authentication", "Use Federation ID for user mapping and configure SAML in both orgs", "Rely on Salesforce-to-Salesforce for user synchronization", "Create a custom Apex REST service for authentication"]'::jsonb,
+      1
+    ),
+    (
+      'An external web app needs to access Salesforce data on behalf of a user and also perform server-side actions when the user is offline. Which OAuth flow is most appropriate?',
+      'I would recommend the OAuth 2.0 web server flow. This flow is ideal for applications that can securely store a client secret. It provides both an access token for immediate API calls and a refresh token, which can be used by the server-side process to obtain new access tokens to perform actions when the user is offline.',
+      'Connected Apps and OAuth',
+      'medium'::public.difficulty_level,
+      '["JWT Bearer Flow", "User-Agent Flow", "Web Server Flow", "Device Flow"]'::jsonb,
+      2
+    ),
+    (
+      'During JIT provisioning, new users are failing to be created silently with no clear errors. What is a common cause for this issue within the custom handler?',
+      'I would investigate several areas: ensuring the user running the handler has permissions to create users, adding robust try-catch blocks in the Apex code to log any DML exceptions, verifying that all required User object fields are populated from the SAML assertion, and checking for validation rules or triggers on the User object that might be preventing the save. I would also confirm there are available user licenses.',
+      'JIT Handler',
+      'hard'::public.difficulty_level,
+      '["The IdP is sending an invalid SAML response", "An unhandled DML exception or lack of available licenses", "The Salesforce org is in maintenance mode", "The user''s browser is blocking the SSO redirect"]'::jsonb,
+      1
+    ),
+    (
+      'How can you use the Composite API to retrieve a parent record, its children, and its grandchildren in a single, optimized callout for an LWC?',
+      'I would construct a Composite API request with a series of subrequests. The first subrequest would query the parent record. I would then use the `referenceId` from this first request to dynamically build the WHERE clauses for the subsequent subrequests that query for the child and grandchild records, ensuring all data is fetched in one round trip.',
+      'Composite API',
+      'medium'::public.difficulty_level,
+      '["Make three separate API calls", "Use a complex SOQL query with multiple subqueries", "Build a single Composite request with chained subrequests using referenceIds", "Use the Bulk API to query all objects at once"]'::jsonb,
+      2
+    ),
+    (
+      'You must execute six dependent SOQL queries in a single transaction, but the Composite API is limited to five. How do you solve this?',
+      'Since the Composite API has a hard limit of five queries, I would break the operation into two sequential Composite API calls. The first call would execute the first four or five queries. The response from this call would provide the necessary data to construct the remaining queries for the second Composite API call. A loading indicator would be used to make this appear as a single operation to the user.',
+      'Composite API',
+      'hard'::public.difficulty_level,
+      '["Request a limit increase from Salesforce support", "Use the Bulk API instead", "Combine the queries into a larger, less efficient query", "Split the work into two sequential Composite API calls"]'::jsonb,
+      3
+    ),
+    (
+      'An integration using the Composite API sometimes fails to return all records from the later queries in a 5-query request. What is a likely cause related to API limits?',
+      'A likely cause is hitting the total record retrieval limit for a single composite request (2,000 records). After this limit, subsequent queries only return the first 200 records. To fix this, you must inspect the response for a `nextRecordsUrl` and make additional API calls to that URL to retrieve the remaining records.',
+      'Composite API',
+      'hard'::public.difficulty_level,
+      '["The user''s profile is missing FLS on some fields", "The total record retrieval limit was hit, requiring calls to the nextRecordsUrl", "The API request timed out before completing", "The API version used is deprecated"]'::jsonb,
+      1
+    )
   ) as t(question_text, explanation, topic, difficulty, choices, correct_choice_index)
 ),
 inserted_questions as (

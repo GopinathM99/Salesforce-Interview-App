@@ -55,6 +55,7 @@ body {
 .btn.danger { background: var(--danger); color: #2b0b0b; border-color: var(--danger); }
 
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.admin-stack { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 
 .muted { color: var(--muted); }
 .pill { padding: 2px 8px; border-radius: 999px; border: 1px solid #2a3c5f; font-size: 12px; }
