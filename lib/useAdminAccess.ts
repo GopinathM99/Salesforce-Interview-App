@@ -62,9 +62,9 @@ export function useAdminAccess(): UseAdminAccessResult {
     setCheckingAdmin(true);
     setAdminCheckError(null);
 
-    supabase
-      .rpc("is_admin")
-      .then(({ data, error }) => {
+    const run = async () => {
+      try {
+        const { data, error } = await supabase.rpc("is_admin");
         if (cancelled) return;
         if (error) {
           setAdminCheckError(error.message);
@@ -72,10 +72,12 @@ export function useAdminAccess(): UseAdminAccessResult {
         } else {
           setIsAdmin(Boolean(data));
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setCheckingAdmin(false);
-      });
+      }
+    };
+
+    void run();
 
     return () => {
       cancelled = true;
