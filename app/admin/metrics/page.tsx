@@ -180,9 +180,9 @@ function Content({ ctx: _ctx }: ContentProps) {
 }
 
 function buildDifficultyOrder(difficultySet: Set<string>) {
-  const normalized = Array.from(difficultySet).filter(Boolean);
+  const normalized = Array.from(difficultySet).filter(Boolean) as string[];
   const extras = normalized
-    .filter((diff) => !defaultDifficultyOrder.includes(diff))
+    .filter((diff) => !defaultDifficultyOrder.includes(diff as Difficulty))
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
   return [...defaultDifficultyOrder, ...extras];
