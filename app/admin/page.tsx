@@ -5,10 +5,10 @@ import AdminAccessShell from "@/components/AdminAccessShell";
 
 const tiles = [
   {
-    title: "New Question",
+    title: "Add New Questions",
     description: "Create fresh interview questions and store them in the database.",
     href: "/admin/new-question",
-    cta: "Open Form"
+    cta: "Add Questions"
   },
   {
     title: "Admin Users",
@@ -17,10 +17,10 @@ const tiles = [
     cta: "Manage Admins"
   },
   {
-    title: "CSV Import/Export",
-    description: "Bulk export questions or import updates from a spreadsheet.",
-    href: "/admin/import-export",
-    cta: "Open CSV Tools"
+    title: "Metrics",
+    description: "Review question counts by topic and difficulty.",
+    href: "/admin/metrics",
+    cta: "View Metrics"
   },
   {
     title: "Edit Questions",
@@ -38,13 +38,10 @@ export default function AdminHomePage() {
           <div className="card">
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
               <h2 className="title">Admin Tools</h2>
-              <button className="btn" onClick={() => void ctx.signOut()}>Sign Out</button>
+              <Link className="btn" href="/">Back to Home Page</Link>
             </div>
-            {ctx.currentUserEmail && (
-              <p className="muted" style={{ marginBottom: 12 }}>Signed in as {ctx.currentUserEmail}</p>
-            )}
             <p className="muted">
-              Pick a tile to manage interview content, admin access, or CSV workflows.
+              Pick a tile to manage interview content, admin access, or review metrics.
             </p>
             <div className="grid" style={{ marginTop: 12 }}>
               {tiles.map((tile) => (

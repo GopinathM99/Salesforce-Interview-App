@@ -116,7 +116,7 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
 
   return (
     <div className="card">
-      <h3 className="title">{initial?.id ? "Edit Question" : "New Question"}</h3>
+      <h3 className="title">{initial?.id ? "Edit Question" : "Create Question"}</h3>
       {error && <p className="muted">Error: {error}</p>}
       <div className="col" style={{ gap: 12 }}>
         <div className="col">
@@ -199,7 +199,9 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
             {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Question"}
           </button>
           {onCancel && (
-            <button className="btn" onClick={onCancel} disabled={saving}>Cancel</button>
+            <button className="btn" onClick={onCancel} disabled={saving}>
+              Cancel
+            </button>
           )}
         </div>
       </div>

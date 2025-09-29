@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminAccessShell from "@/components/AdminAccessShell";
 import QuestionForm from "@/components/QuestionForm";
@@ -22,7 +23,7 @@ type ContentProps = {
   ctx: UseAdminAccessResult;
 };
 
-function Content({ ctx }: ContentProps) {
+function Content({ ctx: _ctx }: ContentProps) {
   const [topics, setTopics] = useState<string[]>([]);
   const [topicFilter, setTopicFilter] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
@@ -67,9 +68,12 @@ function Content({ ctx }: ContentProps) {
   }, [loadItems]);
 
   const filteredItems = useMemo(() => {
-    if (difficultyFilter === "all") return items;
-    return items.filter((item) => item.difficulty === difficultyFilter);
-  }, [difficultyFilter, items]);
+    return items.filter((item) => {
+      const matchesTopic = topicFilter ? item.topic === topicFilter : true;
+      const matchesDifficulty = difficultyFilter === "all" ? true : item.difficulty === difficultyFilter;
+      return matchesTopic && matchesDifficulty;
+    });
+  }, [difficultyFilter, items, topicFilter]);
 
   const onDelete = useCallback(async (id: string) => {
     if (!confirm("Delete this question?")) return;
@@ -85,11 +89,10 @@ function Content({ ctx }: ContentProps) {
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <h2 className="title">Edit Questions</h2>
-          <button className="btn" onClick={() => void ctx.signOut()}>Sign Out</button>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Link className="btn" href="/admin">Back to Admin Home Page</Link>
+          </div>
         </div>
-        {ctx.currentUserEmail && (
-          <p className="muted" style={{ marginBottom: 12 }}>Signed in as {ctx.currentUserEmail}</p>
-        )}
         <p className="muted">
           Filter by topic and difficulty to update or delete questions. Use the refresh button after imports or new
           question submissions to pull the latest content.
@@ -132,7 +135,6 @@ function Content({ ctx }: ContentProps) {
                       <div className="row" style={{ gap: 8 }}>
                         <span className="pill">{question.topic}</span>
                         <span className="pill">{question.difficulty}</span>
-                        {question.mcq && <span className="pill">MCQ</span>}
                       </div>
                       <strong style={{ marginTop: 6 }}>{question.question_text}</strong>
                     </div>
