@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import AdminAccessShell from "@/components/AdminAccessShell";
-import type { UseAdminAccessResult } from "@/lib/useAdminAccess";
+import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 
 const DEFAULT_TOPIC_OPTIONS = [
@@ -39,6 +40,26 @@ const QUESTION_KIND_CHOICES = ["Knowledge", "Scenario", "Coding"];
 type GeminiMessage = {
   role: "user" | "assistant";
   content: string;
+};
+
+const responsePanelStyle: CSSProperties = {
+  background: "#0b1730",
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  borderRadius: 12,
+  padding: "14px 16px",
+  lineHeight: 1.65,
+  width: "100%",
+  maxHeight: "none",
+  overflow: "visible",
+  wordBreak: "break-word"
+};
+
+const responseSectionStyle: CSSProperties = {
+  borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+  paddingTop: 12,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8
 };
 
 const FOLLOW_UP_PROMPT = `I want to insert the above questions into supabase database. Convert the above questions to the below sql format. don't output anything else
@@ -89,17 +110,13 @@ join mcq_rows mr on mr.question_text = iq.question_text;`;
 export default function AdminNewQuestionPage() {
   return (
     <AdminAccessShell>
-      {(ctx) => <Content ctx={ctx} />}
+      {() => <Content />}
     </AdminAccessShell>
   );
 }
 
-type ContentProps = {
-  ctx: UseAdminAccessResult;
-};
-
-function Content({ ctx: _ctx }: ContentProps) {
-  void _ctx;
+function Content() {
+  const { session } = useAuth();
   const [topics, setTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -166,9 +183,26 @@ function Content({ ctx: _ctx }: ContentProps) {
   };
 
   const streamGemini = async (messages: GeminiMessage[], onChunk?: (text: string) => void) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream"
+    };
+
+    let accessToken = session?.access_token ?? null;
+    if (!accessToken) {
+      const { data } = await supabase.auth.getSession();
+      accessToken = data.session?.access_token ?? null;
+    }
+
+    if (!accessToken) {
+      throw new Error("Missing Supabase session. Sign in again to continue.");
+    }
+
+    headers.Authorization = `Bearer ${accessToken}`;
+
     const response = await fetch("/api/gemini", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers,
       body: JSON.stringify({ messages })
     });
 
@@ -525,15 +559,15 @@ function Content({ ctx: _ctx }: ContentProps) {
           {geminiError && <span className="muted" style={{ color: "var(--danger, #f87171)" }}>Error: {geminiError}</span>}
         </div>
         {geminiResponse && (
-          <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 12 }}>
-            <strong style={{ display: "block", marginBottom: 8 }}>Gemini Response</strong>
-            <div style={{ lineHeight: 1.6 }}>
+          <div style={responseSectionStyle}>
+            <strong>Gemini Response</strong>
+            <div className="markdown" style={responsePanelStyle}>
               <ReactMarkdown>{geminiResponse}</ReactMarkdown>
             </div>
           </div>
         )}
         {geminiFollowUpResponse && (
-          <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 12 }}>
+          <div style={responseSectionStyle}>
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <strong>Supabase Insert Payload</strong>
               <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -550,7 +584,13 @@ function Content({ ctx: _ctx }: ContentProps) {
                 </button>
               </div>
             </div>
-            <div style={{ lineHeight: 1.6, overflowX: "auto" }}>
+            <div
+              className="markdown"
+              style={{
+                ...responsePanelStyle,
+                fontFamily: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+              }}
+            >
               <ReactMarkdown>{geminiFollowUpResponse}</ReactMarkdown>
             </div>
           </div>

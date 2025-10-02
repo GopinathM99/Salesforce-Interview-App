@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabaseClient";
 
 type ChatRole = "user" | "assistant";
 
@@ -116,8 +118,18 @@ const AVAILABLE_TOPICS = [
 const DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 const QUESTION_COUNTS = ["1", "2", "3", "4", "5"];
 const QUESTION_TYPES = ["Knowledge", "Scenario", "Coding"];
+const DAILY_LIMIT = 3;
+
+const getTodayRange = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
 
 export default function AddQuestionsPage() {
+  const { user, session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -127,6 +139,38 @@ export default function AddQuestionsPage() {
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
   const [selectedQuestionCount, setSelectedQuestionCount] = useState<string | null>(null);
   const [selectedQuestionType, setSelectedQuestionType] = useState<string | null>(null);
+  const [attemptsToday, setAttemptsToday] = useState<number | null>(null);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+
+  const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
+  const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
+
+  useEffect(() => {
+    if (!user) {
+      setAttemptsToday(null);
+      setAttemptsLoading(false);
+      return;
+    }
+
+    const loadAttempts = async () => {
+      setAttemptsLoading(true);
+      const { start, end } = getTodayRange();
+      const { count, error } = await supabase
+        .from("gemini_usage_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("used_at", start)
+        .lt("used_at", end);
+      if (error) {
+        console.error("Failed to load Gemini usage", error);
+        setAttemptsToday(0);
+      } else {
+        setAttemptsToday(count ?? 0);
+      }
+      setAttemptsLoading(false);
+    };
+
+    void loadAttempts();
+  }, [user]);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((previous) =>
@@ -173,6 +217,42 @@ export default function AddQuestionsPage() {
       return;
     }
 
+    if (!user) {
+      setError("Log in to use the Gemini chat builder.");
+      return;
+    }
+
+    if (!session?.access_token) {
+      setError("Could not verify your session. Please sign out and log back in.");
+      return;
+    }
+
+    if (attemptsLoading) {
+      setError("Checking your daily limit. Please try again in a moment.");
+      return;
+    }
+
+    const { start, end } = getTodayRange();
+    const { count: latestCount, error: countError } = await supabase
+      .from("gemini_usage_logs")
+      .select("id", { count: "exact", head: true })
+      .gte("used_at", start)
+      .lt("used_at", end);
+
+    if (countError) {
+      setError("Could not verify your remaining attempts. Please try again shortly.");
+      return;
+    }
+
+    if ((latestCount ?? 0) >= DAILY_LIMIT) {
+      setAttemptsToday(latestCount ?? 0);
+      setError(
+        "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
+      );
+      return;
+    }
+    const nextCount = (latestCount ?? 0) + 1;
+
     const promptSections: string[] = [];
     if (selectedTopics.length) {
       promptSections.push(`Focus on these Salesforce topics: ${selectedTopics.join(", ")}.`);
@@ -206,9 +286,18 @@ export default function AddQuestionsPage() {
     let assistantId: string | null = null;
     let awaitingFirstChunk = true;
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream"
+      };
+      const accessToken = session?.access_token;
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+
       const response = await fetch("/api/gemini", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        headers,
         body: JSON.stringify({
           messages: nextMessages.map(({ role, content }) => ({ role, content }))
         })
@@ -226,6 +315,8 @@ export default function AddQuestionsPage() {
         }
         throw new Error(detail);
       }
+
+      setAttemptsToday(nextCount);
 
       if (!response.body) {
         throw new Error("Gemini returned an empty stream.");
@@ -396,6 +487,29 @@ export default function AddQuestionsPage() {
           <Link className="btn" href="/">Back to Home</Link>
         </div>
         <p className="muted" style={{ marginTop: 8 }}>{hint}</p>
+        {user && (
+          <p className="muted" style={{ marginTop: 4 }}>
+            {attemptsLoading
+              ? "Checking remaining attempts…"
+              : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
+          </p>
+        )}
+        {!user && (
+          <p
+            style={{
+              marginTop: 4,
+              color: "#1F2937",
+              backgroundColor: "#FDE68A",
+              fontStyle: "italic",
+              fontWeight: 600,
+              padding: "6px 10px",
+              borderRadius: 6,
+              display: "inline-block"
+            }}
+          >
+            Log in to try this out and brainstorm fresh questions.
+          </p>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -572,9 +686,7 @@ export default function AddQuestionsPage() {
               padding: 16,
               border: "1px solid #233453",
               borderRadius: 12,
-              background: "#0d172b",
-              maxHeight: 320,
-              overflowY: "auto"
+              background: "#0d172b"
             }}
           >
             {messages.map((message) => (
@@ -643,15 +755,23 @@ export default function AddQuestionsPage() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Example: Draft a medium difficulty Salesforce Flow scenario question with multiple choice answers."
-              disabled={loading}
+              disabled={loading || limitReached || !user || attemptsLoading}
             />
             {error && <p className="muted">Error: {error}</p>}
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <span className="muted" style={{ fontSize: 12 }}>
                 Gemini 2.5 Pro will use your prompt and chat history to craft question drafts.
               </span>
-              <button className="btn success" type="submit" disabled={loading}>
-                {loading ? "Generating…" : "Generate with Gemini"}
+              <button
+                className="btn success"
+                type="submit"
+                disabled={loading || limitReached || !user || attemptsLoading}
+              >
+                {loading
+                  ? "Generating…"
+                  : limitReached
+                    ? "Daily Limit Reached"
+                    : "Generate with Gemini"}
               </button>
             </div>
           </div>

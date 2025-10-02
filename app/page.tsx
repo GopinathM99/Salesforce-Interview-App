@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -9,6 +9,55 @@ export default function Page() {
   const { user } = useAuth();
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [attemptsToday, setAttemptsToday] = useState<number | null>(null);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+
+  const DAILY_LIMIT = 3;
+
+  const getTodayRange = () => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!user) {
+      setAttemptsToday(null);
+      setAttemptsLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadAttempts = async () => {
+      setAttemptsLoading(true);
+      const { start, end } = getTodayRange();
+      const { count, error } = await supabase
+        .from("gemini_usage_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("used_at", start)
+        .lt("used_at", end);
+      if (!isMounted) return;
+      if (error) {
+        console.error("Failed to load Gemini usage", error);
+        setAttemptsToday(null);
+      } else {
+        setAttemptsToday(count ?? 0);
+      }
+      setAttemptsLoading(false);
+    };
+
+    void loadAttempts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  const limitReached = attemptsToday != null && attemptsToday >= DAILY_LIMIT;
 
   const resetProgress = async () => {
     if (!user) {
@@ -64,16 +113,77 @@ export default function Page() {
               Start MCQs
             </Link>
           </div>
-          <div className="card">
+          <div
+            className="card"
+            style={!user || limitReached ? { opacity: 0.5 } : undefined}
+            aria-disabled={!user || limitReached ? true : undefined}
+          >
             <h3>Try New Questions</h3>
             <p>Attempt new knowledge, scenario based, or coding questions with Gemini.</p>
-            <Link
-              className="btn primary"
-              href="/add-questions"
-              style={{ marginTop: 12, display: "inline-block" }}
-            >
-              Live Gemini Chat
-            </Link>
+            {user ? (
+              limitReached ? (
+                <>
+                  <button
+                    className="btn"
+                    style={{ marginTop: 12, display: "inline-block", cursor: "not-allowed" }}
+                    disabled
+                    aria-disabled
+                  >
+                    Daily Limit Reached
+                  </button>
+                  <p
+                    style={{
+                      marginTop: 8,
+                      color: "#1F2937",
+                      backgroundColor: "#FCA5A5",
+                      fontStyle: "italic",
+                      fontWeight: 600,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      display: "inline-block"
+                    }}
+                  >
+                    You used all {DAILY_LIMIT} Gemini requests today. Try again tomorrow or switch to Flash Cards or Multiple Choice Questions.
+                  </p>
+                </>
+              ) : (
+                <Link
+                  className="btn primary"
+                  href="/add-questions"
+                  style={{ marginTop: 12, display: "inline-block" }}
+                >
+                  Live Gemini Chat
+                </Link>
+              )
+            ) : (
+              <>
+                <button
+                  className="btn"
+                  style={{ marginTop: 12, display: "inline-block", cursor: "not-allowed" }}
+                  disabled
+                  aria-disabled
+                >
+                  Live Gemini Chat
+                </button>
+                <p
+                  style={{
+                    marginTop: 8,
+                    color: "#1F2937",
+                    backgroundColor: "#FDE68A",
+                    fontStyle: "italic",
+                    fontWeight: 600,
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    display: "inline-block"
+                  }}
+                >
+                  Log in to try this out and brainstorm fresh questions.
+                </p>
+              </>
+            )}
+            {user && attemptsLoading && !limitReached && (
+              <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
+            )}
           </div>
           <div className="card">
             <h3>Reset Progress</h3>
