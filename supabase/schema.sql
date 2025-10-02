@@ -123,12 +123,17 @@ create table if not exists public.questions (
   question_text text not null,
   answer_text text,
   topic text not null,
+  sub_topic text,
   difficulty public.difficulty_level not null default 'medium',
   created_at timestamptz not null default now()
 );
 
+alter table if exists public.questions
+  add column if not exists sub_topic text;
+
 -- Indexes for filtering
 create index if not exists idx_questions_topic on public.questions (topic);
+create index if not exists idx_questions_sub_topic on public.questions (sub_topic);
 create index if not exists idx_questions_difficulty on public.questions (difficulty);
 
 create table if not exists public.multiple_choice_questions (
@@ -159,6 +164,69 @@ create table if not exists public.multiple_choice_questions (
 
 create index if not exists idx_multiple_choice_questions_question_id
   on public.multiple_choice_questions (question_id);
+
+create table if not exists public.gemini_usage_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  used_at timestamptz not null default now()
+);
+
+drop index if exists idx_gemini_usage_logs_user_day;
+create index if not exists idx_gemini_usage_logs_user_used_at
+  on public.gemini_usage_logs (user_id, used_at);
+
+alter table public.gemini_usage_logs enable row level security;
+
+drop policy if exists "Users can view their Gemini usage" on public.gemini_usage_logs;
+create policy "Users can view their Gemini usage"
+  on public.gemini_usage_logs for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can log their Gemini usage" on public.gemini_usage_logs;
+create policy "Users can log their Gemini usage"
+  on public.gemini_usage_logs for insert
+  with check (auth.uid() = user_id);
+
+create table if not exists public.user_profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  first_name text,
+  last_name text,
+  email citext not null,
+  first_signed_in_at timestamptz not null default now(),
+  last_signed_in_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table if exists public.user_profiles
+  add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists idx_user_profiles_last_signed_in
+  on public.user_profiles (last_signed_in_at desc);
+
+create unique index if not exists user_profiles_email_unique
+  on public.user_profiles (lower(email));
+
+alter table public.user_profiles enable row level security;
+
+drop policy if exists "Users manage own profile" on public.user_profiles;
+create policy "Users manage own profile"
+  on public.user_profiles for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Admins can view profiles" on public.user_profiles;
+create policy "Admins can view profiles"
+  on public.user_profiles for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins can manage profiles" on public.user_profiles;
+create policy "Admins can manage profiles"
+  on public.user_profiles for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- Track which user has attempted which question
 create table if not exists public.question_attempts (

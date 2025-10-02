@@ -11,6 +11,12 @@ const tiles = [
     cta: "Add Questions"
   },
   {
+    title: "User Directory",
+    description: "See every user who has signed in and when they last visited.",
+    href: "/admin/users",
+    cta: "View Users"
+  },
+  {
     title: "Admin Users",
     description: "Invite new admins, set a primary, or review existing access.",
     href: "/admin/admin-users",

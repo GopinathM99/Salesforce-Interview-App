@@ -1,5 +1,6 @@
--- Drop legacy version without include_attempted param to prevent overload ambiguity
+-- Drop existing overloads so we can redefine the return shape safely
 drop function if exists public.random_questions(int, text[], text[], boolean);
+drop function if exists public.random_questions(int, text[], text[], boolean, boolean);
 
 -- Random selection RPC with optional filters
 create or replace function public.random_questions(
@@ -14,6 +15,7 @@ returns table (
   question_text text,
   answer_text text,
   topic text,
+  sub_topic text,
   difficulty public.difficulty_level,
   created_at timestamptz,
   mcq jsonb
@@ -26,6 +28,7 @@ as $$
     q.question_text,
     q.answer_text,
     q.topic,
+    q.sub_topic,
     q.difficulty,
     q.created_at,
     case
@@ -71,3 +74,46 @@ as $$
 $$;
 
 grant execute on function public.list_topics() to anon, authenticated;
+
+-- Track user sessions
+drop function if exists public.log_user_sign_in(text, text, text);
+
+create or replace function public.log_user_sign_in(
+  first_name text default null,
+  last_name text default null,
+  email text default null
+)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.user_profiles (
+    user_id,
+    first_name,
+    last_name,
+    email,
+    first_signed_in_at,
+    last_signed_in_at,
+    updated_at
+  )
+  values (
+    auth.uid(),
+    nullif(first_name, ''),
+    nullif(last_name, ''),
+    coalesce(nullif(email, ''), auth.jwt() ->> 'email'),
+    now(),
+    now(),
+    now()
+  )
+  on conflict (user_id) do update
+    set
+      first_name = coalesce(excluded.first_name, public.user_profiles.first_name),
+      last_name = coalesce(excluded.last_name, public.user_profiles.last_name),
+      email = coalesce(excluded.email, public.user_profiles.email),
+      first_signed_in_at = least(public.user_profiles.first_signed_in_at, excluded.first_signed_in_at),
+      last_signed_in_at = greatest(public.user_profiles.last_signed_in_at, excluded.last_signed_in_at),
+      updated_at = now();
+$$;
+
+grant execute on function public.log_user_sign_in(text, text, text) to authenticated;
