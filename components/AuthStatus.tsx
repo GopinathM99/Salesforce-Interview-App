@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthProvider";
 
 export function AuthStatus() {
@@ -39,16 +40,24 @@ export function AuthStatus() {
           <span className="pill" title={user.email ?? undefined}>
             Signed in as {user.user_metadata.full_name ?? user.email}
           </span>
-          <button className="btn" onClick={handleSignOut} disabled={loading}>
+          <Button
+            variant="secondary"
+            onClick={handleSignOut}
+            disabled={loading}
+          >
             Sign out
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="row" style={{ gap: 8, alignItems: "center" }}>
           <span className="muted optional-tag">Optional</span>
-          <button className="btn" onClick={handleSignIn} disabled={loading}>
+          <Button
+            variant="secondary"
+            onClick={handleSignIn}
+            disabled={loading}
+          >
             {loading ? "Connecting..." : "Sign in with Google"}
-          </button>
+          </Button>
         </div>
       )}
     </div>

@@ -20,3 +20,7 @@ pnpm-debug.log*
 
 # OS artifacts
 .DS_Store
+
+# Planning docs
+Enhancements Plan.md
+work-tracker.md

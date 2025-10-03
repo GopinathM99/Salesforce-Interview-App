@@ -14,9 +14,12 @@
 - Copy `.env.local.example` to `.env.local` and set:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- Install and run locally:
+- Install dependencies and run locally:
   - `npm install`
   - `npm run dev`
+- Recommended verification commands prior to committing UI changes:
+  - `npm run lint`
+  - `npm run build`
 
 Open http://localhost:3000 to use the app.
 
@@ -68,15 +71,24 @@ Open http://localhost:3000 to use the app.
 - RLS is enabled. The included policy allows `select` for `anon` and `authenticated` roles so the UI can read questions without login.
 - Modify the write policy if you plan to build an admin UI.
 
+**Styling & UI Toolkit**
+
+- Tailwind CSS v4 powers utility classes. Global tokens live in `styles/globals.css`; theme extensions (colors, radius, card shadow) are defined in `tailwind.config.js`.
+- Shadcn UI scaffolds reusable primitives into `components/ui/`. Components are added on demand, e.g. `npx shadcn@latest add button`.
+- `lib/utils.ts` exports the `cn` helper (clsx + tailwind-merge) used by Shadcn components.
+- When migrating legacy styles, replace `.btn`, `.card`, etc. with Shadcn/Tailwind utilities incrementally and rerun `npm run lint` / `npm run build` after each page.
+
 **Project Structure**
 
 - `app/` Next.js App Router pages
   - `/` landing with links to `/flashcards` and `/mcq`
   - `/flashcards` Flashcard mode with reveal + next
   - `/mcq` Multiple choice with submit + feedback
-- `lib/supabaseClient.ts` Supabase client using public env vars
-- `lib/types.ts` TypeScript models
-- `styles/globals.css` Minimal styling
+  - `/admin` Admin dashboard with subroutes
+- `components/` shared presentation and logic (`AuthProvider`, `AuthStatus`, etc.)
+- `components/ui/` Shadcn primitives generated via CLI (e.g., `button.tsx`)
+- `lib/` framework-agnostic helpers (`supabaseClient`, `types`, `utils`)
+- `styles/globals.css` Global Tailwind layers + design tokens
 - `supabase/*.sql` Schema, RPC function, and sample seed data
 
 **Notes**
