@@ -176,6 +176,21 @@
     flex-wrap: wrap;
   }
 
+  .header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 240px;
+  }
+
+  .welcome-message {
+    font-size: 14px;
+    color: var(--muted);
+    text-align: right;
+    align-self: flex-end;
+  }
+
   .footer {
     margin-top: 40px;
     color: var(--muted);
