@@ -11,6 +11,8 @@ export default function Page() {
   const [message, setMessage] = useState<string | null>(null);
   const [attemptsToday, setAttemptsToday] = useState<number | null>(null);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const DAILY_LIMIT = 3;
 
@@ -58,6 +60,37 @@ export default function Page() {
   }, [user]);
 
   const limitReached = attemptsToday != null && attemptsToday >= DAILY_LIMIT;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user) {
+      setIsAdmin(false);
+      setCheckingAdmin(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const checkAdmin = async () => {
+      setCheckingAdmin(true);
+      const { data, error } = await supabase.rpc("is_admin");
+      if (cancelled) return;
+      if (error) {
+        console.error("Failed to verify admin access", error);
+        setIsAdmin(false);
+      } else {
+        setIsAdmin(Boolean(data));
+      }
+      setCheckingAdmin(false);
+    };
+
+    void checkAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const resetProgress = async () => {
     if (!user) {
@@ -185,6 +218,19 @@ export default function Page() {
               <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
             )}
           </div>
+          {user && isAdmin && !checkingAdmin && (
+            <div className="card">
+              <h3>Admin Panel</h3>
+              <p>Manage your Salesforce question bank, categories, and AI quotas.</p>
+              <Link
+                className="btn primary"
+                href="/admin"
+                style={{ marginTop: 12, display: "inline-block" }}
+              >
+                Open Admin Panel
+              </Link>
+            </div>
+          )}
           <div className="card">
             <h3>Reset Progress</h3>
             <p>Clear your attempt history so every question appears again.</p>
