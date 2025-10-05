@@ -19,7 +19,9 @@ export default function RootLayout({
         <AuthProvider>
           <div className="container">
             <header className="header">
-              <h1>Salesforce Developer Interview Prep</h1>
+              <div className="header-title">
+                <h1>Salesforce Developer Interview Prep</h1>
+              </div>
               <AuthStatus />
             </header>
             <main>{children}</main>
