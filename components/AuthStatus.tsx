@@ -81,10 +81,34 @@ export function AuthStatus() {
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Close account actions" : "Open account actions"}
               onClick={() => setMenuOpen((open) => !open)}
-              style={{ cursor: "pointer" }}
+              style={{ 
+                cursor: "pointer",
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                border: "2px solid rgba(59, 130, 246, 0.3)",
+                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                transition: "all 0.3s ease",
+                position: "relative",
+                overflow: "hidden"
+              }}
               disabled={loading}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.1)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(59, 130, 246, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
+              }}
             >
-              <User aria-hidden style={{ width: 18, height: 18 }} />
+              <User aria-hidden style={{ 
+                width: 24, 
+                height: 24, 
+                color: "white",
+                filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))"
+              }} />
             </Button>
             {menuOpen && (
               <div
@@ -94,16 +118,18 @@ export function AuthStatus() {
                   right: 0,
                   top: "calc(100% + 8px)",
                   minWidth: 220,
-                  background: "#101a2e",
-                  border: "1px solid #1d2840",
-                  borderRadius: 10,
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-                  padding: 12,
+                  background: "linear-gradient(135deg, #1a1f2e 0%, rgba(26, 31, 46, 0.95) 100%)",
+                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  borderRadius: 12,
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)",
+                  padding: 16,
                   display: "grid",
-                  gap: 8
+                  gap: 12,
+                  zIndex: 1000,
+                  backdropFilter: "blur(10px)"
                 }}
               >
-                <span className="pill" title={user.email ?? undefined} style={{ whiteSpace: "nowrap" }}>
+                <span className="pill" title={user.email ?? undefined} style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                   Signed in as {user.user_metadata.full_name ?? user.email}
                 </span>
                 <Button
@@ -135,9 +161,31 @@ export function AuthStatus() {
             onClick={handleSignIn}
             disabled={loading}
             aria-label="Sign in with Google"
-            style={{ cursor: "pointer" }}
+            style={{ 
+              cursor: "pointer",
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+              border: "2px solid rgba(245, 158, 11, 0.3)",
+              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+              transition: "all 0.3s ease"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.1)";
+              e.currentTarget.style.boxShadow = "0 6px 20px rgba(245, 158, 11, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(245, 158, 11, 0.3)";
+            }}
           >
-            <User aria-hidden style={{ width: 18, height: 18 }} />
+            <User aria-hidden style={{ 
+              width: 24, 
+              height: 24, 
+              color: "white",
+              filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))"
+            }} />
           </Button>
         </div>
       )}

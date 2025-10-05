@@ -173,12 +173,13 @@ export default function Page() {
                   <p
                     style={{
                       marginTop: 8,
-                      color: "#1F2937",
-                      backgroundColor: "#FCA5A5",
+                      color: "#7f1d1d",
+                      backgroundColor: "rgba(239, 68, 68, 0.1)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
                       fontStyle: "italic",
                       fontWeight: 600,
-                      padding: "6px 10px",
-                      borderRadius: 6,
+                      padding: "8px 12px",
+                      borderRadius: 12,
                       display: "inline-block"
                     }}
                   >
@@ -207,12 +208,13 @@ export default function Page() {
                 <p
                   style={{
                     marginTop: 8,
-                    color: "#1F2937",
-                    backgroundColor: "#FDE68A",
+                    color: "#92400e",
+                    backgroundColor: "rgba(245, 158, 11, 0.1)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
                     fontStyle: "italic",
                     fontWeight: 600,
-                    padding: "6px 10px",
-                    borderRadius: 6,
+                    padding: "8px 12px",
+                    borderRadius: 12,
                     display: "inline-block"
                   }}
                 >
@@ -237,14 +239,16 @@ export default function Page() {
               </Link>
             </div>
           )}
-          <div className="card">
-            <h3>Reset Progress</h3>
-            <p>Clear your attempt history so every question appears again.</p>
-            <button className="btn" onClick={() => void resetProgress()} disabled={resetting}>
-              {resetting ? "Resetting…" : "Reset Progress"}
-            </button>
-            {message && <p className="muted" style={{ marginTop: 8 }}>{message}</p>}
-          </div>
+          {user && (
+            <div className="card">
+              <h3>Reset Progress</h3>
+              <p>Clear your attempt history so every question appears again.</p>
+              <button className="btn" onClick={() => void resetProgress()} disabled={resetting}>
+                {resetting ? "Resetting…" : "Reset Progress"}
+              </button>
+              {message && <p className="muted" style={{ marginTop: 8 }}>{message}</p>}
+            </div>
+          )}
         </div>
       </div>
     </div>

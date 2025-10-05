@@ -10,21 +10,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: '#0b1220',
-        card: '#121a2a',
-        foreground: '#e7edf5',
-        muted: '#9fb0ca',
+        background: '#0a0e1a',
+        card: '#1a1f2e',
+        foreground: '#f1f5f9',
+        muted: '#94a3b8',
         accent: {
-          DEFAULT: '#6aa7ff',
-          foreground: '#04122a'
+          DEFAULT: '#3b82f6',
+          foreground: '#0f172a',
+          '2': '#10b981',
+          '3': '#8b5cf6',
+          '4': '#f59e0b'
         },
         success: {
-          DEFAULT: '#22c55e',
-          foreground: '#06200f'
+          DEFAULT: '#10b981',
+          foreground: '#064e3b'
         },
         danger: {
           DEFAULT: '#ef4444',
-          foreground: '#2b0b0b'
+          foreground: '#7f1d1d'
         }
       },
       fontFamily: {
