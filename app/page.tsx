@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
+import { WelcomeMessage } from "@/components/WelcomeMessage";
 
 export default function Page() {
   const { user } = useAuth();
@@ -121,6 +122,11 @@ export default function Page() {
   return (
     <div className="grid">
       <div className="card">
+        {user && (
+          <div style={{ marginBottom: 12 }}>
+            <WelcomeMessage />
+          </div>
+        )}
         <h2 className="title">Choose a Mode</h2>
         <p className="muted">Random questions are pulled from your Supabase database.</p>
         <div className="grid" style={{ marginTop: 12 }}>

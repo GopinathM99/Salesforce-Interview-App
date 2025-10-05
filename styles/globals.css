@@ -185,10 +185,12 @@
   }
 
   .welcome-message {
-    font-size: 14px;
+    font-size: 18px;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-weight: 500;
     color: var(--muted);
-    text-align: right;
-    align-self: flex-end;
+    text-align: left;
+    align-self: flex-start;
   }
 
   .footer {

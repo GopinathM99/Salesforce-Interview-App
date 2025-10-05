@@ -2,7 +2,6 @@ import "../styles/globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthStatus } from "@/components/AuthStatus";
-import { WelcomeMessage } from "@/components/WelcomeMessage";
 
 export const metadata: Metadata = {
   title: "Salesforce Interview Prep",
@@ -22,7 +21,6 @@ export default function RootLayout({
             <header className="header">
               <div className="header-title">
                 <h1>Salesforce Developer Interview Prep</h1>
-                <WelcomeMessage />
               </div>
               <AuthStatus />
             </header>
