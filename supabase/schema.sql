@@ -303,3 +303,58 @@ create policy "Only admins can modify MCQs"
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- Subscription preferences table
+create table if not exists public.subscription_preferences (
+  id uuid primary key default gen_random_uuid(),
+  email citext not null,
+  user_id uuid references auth.users (id) on delete cascade,
+  topics text[] not null default '{}',
+  difficulties text[] not null default '{}',
+  question_types text[] not null default '{}',
+  practice_modes text[] not null default '{}',
+  question_count int not null default 3,
+  delivery_frequency text not null default 'Daily',
+  include_answers boolean not null default true,
+  custom_message text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint subscription_preferences_email_check check (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+  constraint subscription_preferences_delivery_frequency_check check (delivery_frequency in ('Daily', 'Weekly', 'Bi-weekly')),
+  constraint subscription_preferences_question_count_check check (question_count >= 1 and question_count <= 5),
+  constraint subscription_preferences_topics_not_empty check (array_length(topics, 1) > 0),
+  constraint subscription_preferences_question_types_or_practice_modes_not_empty check (
+    array_length(question_types, 1) > 0 or array_length(practice_modes, 1) > 0
+  )
+);
+
+-- Indexes for subscription preferences
+create index if not exists idx_subscription_preferences_email on public.subscription_preferences (email);
+create index if not exists idx_subscription_preferences_user_id on public.subscription_preferences (user_id);
+create index if not exists idx_subscription_preferences_active on public.subscription_preferences (is_active);
+
+-- Enable RLS for subscription preferences
+alter table public.subscription_preferences enable row level security;
+
+-- Policy: Users can manage their own subscription preferences
+drop policy if exists "Users manage own subscription preferences" on public.subscription_preferences;
+create policy "Users manage own subscription preferences"
+  on public.subscription_preferences for all
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email())
+  with check (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Admins can view all subscription preferences
+drop policy if exists "Admins can view subscription preferences" on public.subscription_preferences;
+create policy "Admins can view subscription preferences"
+  on public.subscription_preferences for select
+  to authenticated
+  using (public.is_admin());
+
+-- Policy: Anyone can insert subscription preferences (for anonymous users)
+drop policy if exists "Anyone can subscribe" on public.subscription_preferences;
+create policy "Anyone can subscribe"
+  on public.subscription_preferences for insert
+  to anon, authenticated
+  with check (true);

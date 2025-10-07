@@ -62,6 +62,7 @@ export default function Page() {
 
   const limitReached = attemptsToday != null && attemptsToday >= DAILY_LIMIT;
 
+
   useEffect(() => {
     let cancelled = false;
 
@@ -121,7 +122,7 @@ export default function Page() {
 
   return (
     <div className="grid">
-      <div className="card">
+      <div className="card" style={{ gridColumn: "1 / -1" }}>
         {user && (
           <div style={{ marginBottom: 12 }}>
             <WelcomeMessage />
@@ -222,33 +223,47 @@ export default function Page() {
                 </p>
               </>
             )}
-            {user && attemptsLoading && !limitReached && (
-              <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
-            )}
+          {user && attemptsLoading && !limitReached && (
+            <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
+          )}
+        </div>
+        <div className="card">
+          <h3>Subscribe to Daily Challenges</h3>
+          <p>
+            Get personalized Salesforce interview questions delivered to your inbox. 
+            Choose your topics, difficulty levels, and question types to create the perfect study plan.
+          </p>
+          <Link
+            className="btn primary"
+            href="/subscribe"
+            style={{ marginTop: 12, display: "inline-block" }}
+          >
+            Customize Your Subscription
+          </Link>
+        </div>
+        {user && isAdmin && !checkingAdmin && (
+          <div className="card">
+            <h3>Admin Panel</h3>
+            <p>Manage your Salesforce question bank, categories, and AI quotas.</p>
+            <Link
+              className="btn primary"
+              href="/admin"
+              style={{ marginTop: 12, display: "inline-block" }}
+            >
+              Open Admin Panel
+            </Link>
           </div>
-          {user && isAdmin && !checkingAdmin && (
-            <div className="card">
-              <h3>Admin Panel</h3>
-              <p>Manage your Salesforce question bank, categories, and AI quotas.</p>
-              <Link
-                className="btn primary"
-                href="/admin"
-                style={{ marginTop: 12, display: "inline-block" }}
-              >
-                Open Admin Panel
-              </Link>
-            </div>
-          )}
-          {user && (
-            <div className="card">
-              <h3>Reset Progress</h3>
-              <p>Clear your attempt history so every question appears again.</p>
-              <button className="btn" onClick={() => void resetProgress()} disabled={resetting}>
-                {resetting ? "Resetting…" : "Reset Progress"}
-              </button>
-              {message && <p className="muted" style={{ marginTop: 8 }}>{message}</p>}
-            </div>
-          )}
+        )}
+        {user && (
+          <div className="card">
+            <h3>Reset Progress</h3>
+            <p>Clear your attempt history so every question appears again.</p>
+            <button className="btn" onClick={() => void resetProgress()} disabled={resetting}>
+              {resetting ? "Resetting…" : "Reset Progress"}
+            </button>
+            {message && <p className="muted" style={{ marginTop: 8 }}>{message}</p>}
+          </div>
+        )}
         </div>
       </div>
     </div>

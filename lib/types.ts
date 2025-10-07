@@ -53,6 +53,23 @@ export interface QuestionAttempt {
   attempted_at: string;
 }
 
+export interface SubscriptionPreferences {
+  id: string;
+  email: string;
+  user_id: string | null;
+  topics: string[];
+  difficulties: string[];
+  question_types: string[];
+  practice_modes: string[];
+  question_count: number;
+  delivery_frequency: "Daily" | "Weekly" | "Bi-weekly";
+  include_answers: boolean;
+  custom_message: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 const toChoices = (value: unknown): string[] | null => {
   if (!Array.isArray(value)) return null;
   return value.map((v) => String(v));
