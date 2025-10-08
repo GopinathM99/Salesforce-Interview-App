@@ -33,6 +33,12 @@ const tiles = [
     description: "Filter, update, or delete questions already in the library.",
     href: "/admin/edit-questions",
     cta: "Review Questions"
+  },
+  {
+    title: "Email Management",
+    description: "Manage email subscriptions, send test emails, and view delivery logs.",
+    href: "/admin/email-management",
+    cta: "Manage Emails"
   }
 ] as const;
 

@@ -337,13 +337,34 @@ create index if not exists idx_subscription_preferences_active on public.subscri
 -- Enable RLS for subscription preferences
 alter table public.subscription_preferences enable row level security;
 
--- Policy: Users can manage their own subscription preferences
-drop policy if exists "Users manage own subscription preferences" on public.subscription_preferences;
-create policy "Users manage own subscription preferences"
-  on public.subscription_preferences for all
+-- Policy: Anyone can insert subscription preferences (for anonymous users)
+drop policy if exists "Anyone can subscribe" on public.subscription_preferences;
+create policy "Anyone can subscribe"
+  on public.subscription_preferences for insert
+  to anon, authenticated
+  with check (true);
+
+-- Policy: Users can update their own subscription preferences
+drop policy if exists "Users can update own subscription preferences" on public.subscription_preferences;
+create policy "Users can update own subscription preferences"
+  on public.subscription_preferences for update
   to authenticated
   using (auth.uid() = user_id or email = public.current_user_email())
   with check (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Users can delete their own subscription preferences
+drop policy if exists "Users can delete own subscription preferences" on public.subscription_preferences;
+create policy "Users can delete own subscription preferences"
+  on public.subscription_preferences for delete
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Users can view their own subscription preferences
+drop policy if exists "Users can view own subscription preferences" on public.subscription_preferences;
+create policy "Users can view own subscription preferences"
+  on public.subscription_preferences for select
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email());
 
 -- Policy: Admins can view all subscription preferences
 drop policy if exists "Admins can view subscription preferences" on public.subscription_preferences;
@@ -352,9 +373,82 @@ create policy "Admins can view subscription preferences"
   to authenticated
   using (public.is_admin());
 
--- Policy: Anyone can insert subscription preferences (for anonymous users)
-drop policy if exists "Anyone can subscribe" on public.subscription_preferences;
-create policy "Anyone can subscribe"
-  on public.subscription_preferences for insert
-  to anon, authenticated
+-- Add last_sent_at column to subscription_preferences
+alter table public.subscription_preferences
+  add column if not exists last_sent_at timestamptz;
+
+-- Email delivery logs table
+create table if not exists public.email_delivery_logs (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscription_preferences (id) on delete cascade,
+  email citext not null,
+  questions_sent jsonb not null,
+  sent_at timestamptz not null default now(),
+  status text not null check (status in ('sent', 'failed', 'bounced')),
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+-- Indexes for email delivery logs
+create index if not exists idx_email_delivery_logs_subscription_id on public.email_delivery_logs (subscription_id);
+create index if not exists idx_email_delivery_logs_email on public.email_delivery_logs (email);
+create index if not exists idx_email_delivery_logs_sent_at on public.email_delivery_logs (sent_at);
+create index if not exists idx_email_delivery_logs_status on public.email_delivery_logs (status);
+
+-- Enable RLS for email delivery logs
+alter table public.email_delivery_logs enable row level security;
+
+-- Policy: Admins can view all email delivery logs
+drop policy if exists "Admins can view email delivery logs" on public.email_delivery_logs;
+create policy "Admins can view email delivery logs"
+  on public.email_delivery_logs for select
+  to authenticated
+  using (public.is_admin());
+
+-- Policy: Service role can manage email delivery logs
+drop policy if exists "Service role can manage email delivery logs" on public.email_delivery_logs;
+create policy "Service role can manage email delivery logs"
+  on public.email_delivery_logs for all
+  to service_role
+  using (true)
+  with check (true);
+
+-- Unsubscribe tokens table
+create table if not exists public.unsubscribe_tokens (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscription_preferences (id) on delete cascade,
+  token text not null unique,
+  created_at timestamptz not null default now(),
+  used_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '1 year')
+);
+
+-- Indexes for unsubscribe tokens
+create index if not exists idx_unsubscribe_tokens_token on public.unsubscribe_tokens (token);
+create index if not exists idx_unsubscribe_tokens_subscription_id on public.unsubscribe_tokens (subscription_id);
+create index if not exists idx_unsubscribe_tokens_expires_at on public.unsubscribe_tokens (expires_at);
+
+-- Enable RLS for unsubscribe tokens
+alter table public.unsubscribe_tokens enable row level security;
+
+-- Policy: Anyone can insert unsubscribe tokens (for service operations)
+drop policy if exists "Anyone can insert unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Anyone can insert unsubscribe tokens"
+  on public.unsubscribe_tokens for insert
+  to anon, authenticated, service_role
+  with check (true);
+
+-- Policy: Anyone can select unsubscribe tokens (for unsubscribe operations)
+drop policy if exists "Anyone can select unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Anyone can select unsubscribe tokens"
+  on public.unsubscribe_tokens for select
+  to anon, authenticated, service_role
+  using (true);
+
+-- Policy: Service role can update unsubscribe tokens
+drop policy if exists "Service role can update unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Service role can update unsubscribe tokens"
+  on public.unsubscribe_tokens for update
+  to service_role
+  using (true)
   with check (true);

@@ -68,6 +68,27 @@ export interface SubscriptionPreferences {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  last_sent_at?: string | null;
+}
+
+export interface EmailDeliveryLog {
+  id: string;
+  subscription_id: string;
+  email: string;
+  questions_sent: unknown[];
+  sent_at: string;
+  status: 'sent' | 'failed' | 'bounced';
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface UnsubscribeToken {
+  id: string;
+  subscription_id: string;
+  token: string;
+  created_at: string;
+  used_at: string | null;
+  expires_at: string;
 }
 
 const toChoices = (value: unknown): string[] | null => {
