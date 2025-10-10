@@ -177,33 +177,8 @@ export function generateEmailHTML(
         <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">${question.question_text}</p>
     `;
 
-    // Add MCQ choices if available
-    if (question.mcq && question.mcq.choices) {
-      questionContent += `
-        <div style="margin-bottom: 15px;">
-          <p style="font-weight: bold; margin-bottom: 10px;">Choose the correct answer:</p>
-          <ul style="list-style: none; padding: 0;">
-      `;
-      
-      question.mcq.choices.forEach((choice, choiceIndex) => {
-        const isCorrect = choiceIndex === question.mcq!.correct_choice_index;
-        const choiceStyle = preferences.include_answers && isCorrect 
-          ? 'background-color: #d4edda; border-left: 4px solid #28a745;' 
-          : '';
-        
-        questionContent += `
-          <li style="margin-bottom: 8px; padding: 10px; background-color: #ffffff; border-radius: 4px; ${choiceStyle}">
-            <strong>${String.fromCharCode(65 + choiceIndex)}.</strong> ${choice}
-            ${preferences.include_answers && isCorrect ? '<span style="color: #28a745; font-weight: bold;"> ✓ Correct</span>' : ''}
-          </li>
-        `;
-      });
-      
-      questionContent += `
-          </ul>
-        </div>
-      `;
-    }
+    // Skip MCQ choices for flashcards - flashcards should only show question and answer
+    // MCQ choices are only shown for actual MCQ questions, not flashcards
 
     // Add answer if included
     if (preferences.include_answers && question.answer_text) {
@@ -215,15 +190,8 @@ export function generateEmailHTML(
       `;
     }
 
-    // Add explanation if available
-    if (question.mcq?.explanation) {
-      questionContent += `
-        <div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; border-left: 4px solid #ffc107; margin-top: 10px;">
-          <p style="margin: 0; font-weight: bold; color: #856404;">Explanation:</p>
-          <p style="margin: 5px 0 0 0; color: #856404;">${question.mcq.explanation}</p>
-        </div>
-      `;
-    }
+    // Skip MCQ explanations for flashcards - flashcards use answer_text instead
+    // MCQ explanations are only shown for actual MCQ questions, not flashcards
 
     questionContent += `</div>`;
     return questionContent;
