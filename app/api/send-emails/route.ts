@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
     const expectedServiceToken = process.env.EMAIL_SERVICE_TOKEN;
     const sendAllQuery = url.searchParams.get('sendAll');
 
-    let includeAllActive = sendAllQuery === '1' || sendAllQuery?.toLowerCase() === 'true';
+    const requestedIncludeAllActive =
+      sendAllQuery === '1' || sendAllQuery?.toLowerCase() === 'true';
+    let includeAllActive = requestedIncludeAllActive;
 
     if (!includeAllActive && request.headers.get('content-type')?.includes('application/json')) {
       try {
@@ -73,9 +75,7 @@ export async function POST(request: NextRequest) {
       expectedServiceToken && authHeader === `Bearer ${expectedServiceToken}`
     );
 
-    if (!includeAllActive && !isCronAuth) {
-      includeAllActive = true;
-    }
+    includeAllActive = isCronAuth ? includeAllActive : true;
 
     // Temporarily allow anyone to send emails (for testing)
     // const authHeader = request.headers.get('authorization');
