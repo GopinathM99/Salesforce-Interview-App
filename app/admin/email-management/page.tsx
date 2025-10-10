@@ -39,6 +39,7 @@ export default function EmailManagementPage() {
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [sendingIndividualEmail, setSendingIndividualEmail] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
 
   useEffect(() => {
@@ -134,6 +135,36 @@ export default function EmailManagementPage() {
       );
     } catch (error) {
       console.error('Error toggling subscription:', error);
+    }
+  };
+
+  const handleSendIndividualEmail = async (subscriptionId: string, email: string) => {
+    setSendingIndividualEmail(subscriptionId);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/send-individual-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscriptionId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage(`Email sent successfully to ${email} (${data.questionsCount} questions)`);
+        // Reload data to show updated information
+        loadSubscriptions();
+        loadEmailLogs();
+      } else {
+        setMessage(`Error sending email to ${email}: ${data.error}`);
+      }
+    } catch (error) {
+      setMessage(`Network error sending email to ${email}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSendingIndividualEmail(null);
     }
   };
 
@@ -235,6 +266,7 @@ export default function EmailManagementPage() {
                     <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Last Sent</th>
                     <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Status</th>
                     <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Actions</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Send Email</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -279,6 +311,28 @@ export default function EmailManagementPage() {
                         >
                           {subscription.is_active ? 'Deactivate' : 'Activate'}
                         </button>
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        {subscription.is_active ? (
+                          <button
+                            onClick={() => handleSendIndividualEmail(subscription.id, subscription.email)}
+                            disabled={sendingIndividualEmail === subscription.id}
+                            style={{
+                              backgroundColor: '#007bff',
+                              color: 'white',
+                              padding: '5px 10px',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: sendingIndividualEmail === subscription.id ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                              opacity: sendingIndividualEmail === subscription.id ? 0.6 : 1
+                            }}
+                          >
+                            {sendingIndividualEmail === subscription.id ? 'Sending...' : 'Send Email'}
+                          </button>
+                        ) : (
+                          <span style={{ color: '#6c757d', fontSize: '12px' }}>-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
