@@ -90,31 +90,6 @@ const introMessage: ChatMessage = {
     "Hi! I can help you brainstorm and refine Salesforce interview questions. Share the topic, desired difficulty, or context, and I will draft questions with answers you can add to Supabase."
 };
 
-const AVAILABLE_TOPICS = [
-  "SSO and IDP configuration",
-  "Connected Apps (OAuth)",
-  "IDP JIT Handler",
-  "Composite Query experience",
-  "Best Practices",
-  "Performance improvements",
-  "Troubleshooting issues",
-  "Agentforce",
-  "Apex",
-  "LWC",
-  "Aura",
-  "Triggers",
-  "Trigger handlers",
-  "Users",
-  "Role hierarchy",
-  "Sharing rules",
-  "Flows",
-  "Security",
-  "Sales Cloud",
-  "Service Cloud",
-  "Financial Services Cloud",
-  "Named credentials"
-];
-
 const DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 const QUESTION_COUNTS = ["1", "2", "3", "4", "5"];
 const QUESTION_TYPES = ["Knowledge", "Scenario", "Coding"];
@@ -141,6 +116,8 @@ export default function AddQuestionsPage() {
   const [selectedQuestionType, setSelectedQuestionType] = useState<string | null>(null);
   const [attemptsToday, setAttemptsToday] = useState<number | null>(null);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
 
   const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
   const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
@@ -171,6 +148,25 @@ export default function AddQuestionsPage() {
 
     void loadAttempts();
   }, [user]);
+
+  useEffect(() => {
+    const loadTopics = async () => {
+      setTopicsLoading(true);
+      const { data, error } = await supabase.rpc("list_topics");
+      if (error) {
+        console.error("Failed to load topics", error);
+        setAvailableTopics([]);
+      } else {
+        const sorted = Array.from(
+          new Set(((data as string[]) ?? []).filter((topic): topic is string => Boolean(topic)))
+        ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        setAvailableTopics(sorted);
+      }
+      setTopicsLoading(false);
+    };
+
+    void loadTopics();
+  }, []);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((previous) =>
@@ -531,26 +527,32 @@ export default function AddQuestionsPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <span style={{ fontSize: 14, color: "var(--muted)" }}>Topics</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {AVAILABLE_TOPICS.map((topic) => {
-                  const isSelected = selectedTopics.includes(topic);
-                  return (
-                    <button
-                      key={topic}
-                      type="button"
-                      className="pill"
-                      onClick={() => toggleTopic(topic)}
-                      aria-pressed={isSelected}
-                      style={{
-                        background: isSelected ? "#122a1d" : "#16213b",
-                        borderColor: isSelected ? "var(--accent)" : "#233453",
-                        color: "inherit",
-                        cursor: "pointer"
-                      }}
-                    >
-                      {topic}
-                    </button>
-                  );
-                })}
+                {topicsLoading && <span className="muted">Loading topics…</span>}
+                {!topicsLoading && availableTopics.length === 0 && (
+                  <span className="muted">No topics available. Add questions in Supabase first.</span>
+                )}
+                {!topicsLoading &&
+                  availableTopics.length > 0 &&
+                  availableTopics.map((topic) => {
+                    const isSelected = selectedTopics.includes(topic);
+                    return (
+                      <button
+                        key={topic}
+                        type="button"
+                        className="pill"
+                        onClick={() => toggleTopic(topic)}
+                        aria-pressed={isSelected}
+                        style={{
+                          background: isSelected ? "#122a1d" : "#16213b",
+                          borderColor: isSelected ? "var(--accent)" : "#233453",
+                          color: "inherit",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {topic}
+                      </button>
+                    );
+                  })}
               </div>
               {selectedTopics.length > 0 && (
                 <span className="muted" style={{ fontSize: 12 }}>

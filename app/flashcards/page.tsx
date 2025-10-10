@@ -60,7 +60,8 @@ export default function FlashcardsPage() {
       topics: filters.topic ? [filters.topic] : null,
       difficulties: filters.difficulty ? [filters.difficulty] : null,
       mcq_only: false,
-      include_attempted: false
+      include_attempted: false,
+      flashcards_only: true
     });
     if (error) {
       setError(error.message);

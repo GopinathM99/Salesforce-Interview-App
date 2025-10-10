@@ -61,10 +61,11 @@ Open http://localhost:3000 to use the app.
   - `created_at timestamptz`
   - `updated_at timestamptz`
 
-- RPC `public.random_questions(n, topics, difficulties, mcq_only)`
+- RPC `public.random_questions(n, topics, difficulties, mcq_only, include_attempted, flashcards_only)`
   - Returns `n` random rows, optionally filtered by topic/difficulty.
   - Includes an `mcq` JSON blob when the question has MCQ metadata.
   - When `mcq_only = true`, only returns rows with MCQ metadata.
+- When `flashcards_only = true`, every question is eligible so flashcards surface questions even if MCQ metadata exists.
 
 **RLS Policies**
 
@@ -91,7 +92,41 @@ Open http://localhost:3000 to use the app.
 - `styles/globals.css` Global Tailwind layers + design tokens
 - `supabase/*.sql` Schema, RPC function, and sample seed data
 
+**Email Delivery System**
+
+The application includes a comprehensive email delivery system for sending daily/weekly/bi-weekly practice questions to subscribers.
+
+**Setup:**
+1. Configure Gmail SMTP credentials in environment variables:
+   - `GMAIL_USER`: Your Gmail address
+   - `GMAIL_APP_PASSWORD`: 16-character app password (requires 2FA)
+2. Set email service configuration:
+   - `EMAIL_SERVICE_TOKEN`: Secure token for API authentication
+   - `CRON_SECRET`: Secret for Vercel cron job authentication
+   - `NEXT_PUBLIC_SITE_URL`: Your site URL for unsubscribe links
+
+**Features:**
+- **Subscription Management**: Users can subscribe with preferences for topics, difficulty, question types, and delivery frequency
+- **Email Templates**: Responsive HTML emails with customizable content and branding
+- **Scheduled Delivery**: Automated email sending via Vercel cron jobs (daily at 9 AM)
+- **Admin Interface**: Manage subscriptions, send test emails, and view delivery logs at `/admin/email-management`
+- **Unsubscribe System**: Token-based unsubscribe mechanism with email preference management
+- **Delivery Tracking**: Comprehensive logging of email delivery status and errors
+
+**API Endpoints:**
+- `POST /api/send-emails`: Trigger email delivery (requires authentication)
+- `GET /api/unsubscribe?token=`: Handle unsubscribe requests
+- `POST /api/unsubscribe`: Unsubscribe by email address
+- `GET /api/cron/send-emails`: Vercel cron job endpoint
+
+**Database Tables:**
+- `subscription_preferences`: User subscription settings and preferences
+- `email_delivery_logs`: Track email delivery attempts and status
+- `unsubscribe_tokens`: Secure tokens for unsubscribe functionality
+
 **Notes**
 
 - Do not commit real keys. Use `.env.local` locally and deploy secrets in your hosting platform.
+- Gmail SMTP has a 500 emails/day limit for regular accounts. Consider Google Workspace for higher volume.
+- The email system respects user preferences and includes unsubscribe links in all emails.
 - For more features later: bookmarking, spaced repetition, test sessions, and an admin editor.

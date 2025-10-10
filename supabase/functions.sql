@@ -8,7 +8,8 @@ create or replace function public.random_questions(
   topics text[] default null,
   difficulties text[] default null,
   mcq_only boolean default false,
-  include_attempted boolean default false
+  include_attempted boolean default false,
+  flashcards_only boolean default false
 )
 returns table (
   id uuid,
@@ -48,7 +49,14 @@ as $$
   left join public.multiple_choice_questions mcq on mcq.question_id = q.id
   where (topics is null or q.topic = any(topics))
     and (difficulties is null or q.difficulty::text = any(difficulties))
-    and (not mcq_only or mcq.id is not null)
+    and (
+      -- Show all questions if neither filter is specified
+      (not mcq_only and not flashcards_only)
+      -- Show only MCQs if mcq_only is true
+      or (mcq_only and mcq.id is not null)
+      -- Flashcards view should surface every question, even if an MCQ exists
+      or flashcards_only
+    )
     and (
       include_attempted
       or not exists (
@@ -62,7 +70,7 @@ as $$
   limit n;
 $$;
 
-grant execute on function public.random_questions(int, text[], text[], boolean, boolean) to anon, authenticated;
+grant execute on function public.random_questions(int, text[], text[], boolean, boolean, boolean) to anon, authenticated;
 
 -- Distinct topics
 create or replace function public.list_topics()

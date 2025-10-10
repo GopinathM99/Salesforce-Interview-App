@@ -303,3 +303,154 @@ create policy "Only admins can modify MCQs"
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- Subscription preferences table
+create table if not exists public.subscription_preferences (
+  id uuid primary key default gen_random_uuid(),
+  email citext not null,
+  user_id uuid references auth.users (id) on delete cascade,
+  topics text[] not null default '{}',
+  difficulties text[] not null default '{}',
+  question_types text[] not null default '{}',
+  practice_modes text[] not null default '{}',
+  question_count int not null default 3,
+  delivery_frequency text not null default 'Daily',
+  include_answers boolean not null default true,
+  custom_message text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint subscription_preferences_email_check check (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+  constraint subscription_preferences_delivery_frequency_check check (delivery_frequency in ('Daily', 'Weekly', 'Bi-weekly')),
+  constraint subscription_preferences_question_count_check check (question_count >= 1 and question_count <= 5),
+  constraint subscription_preferences_topics_not_empty check (array_length(topics, 1) > 0),
+  constraint subscription_preferences_question_types_or_practice_modes_not_empty check (
+    array_length(question_types, 1) > 0 or array_length(practice_modes, 1) > 0
+  )
+);
+
+-- Indexes for subscription preferences
+create index if not exists idx_subscription_preferences_email on public.subscription_preferences (email);
+create index if not exists idx_subscription_preferences_user_id on public.subscription_preferences (user_id);
+create index if not exists idx_subscription_preferences_active on public.subscription_preferences (is_active);
+create unique index if not exists subscription_preferences_email_unique
+  on public.subscription_preferences (email);
+
+-- Enable RLS for subscription preferences
+alter table public.subscription_preferences enable row level security;
+
+-- Policy: Anyone can insert subscription preferences (for anonymous users)
+drop policy if exists "Anyone can subscribe" on public.subscription_preferences;
+create policy "Anyone can subscribe"
+  on public.subscription_preferences for insert
+  to anon, authenticated
+  with check (true);
+
+-- Policy: Users can update their own subscription preferences
+drop policy if exists "Users can update own subscription preferences" on public.subscription_preferences;
+create policy "Users can update own subscription preferences"
+  on public.subscription_preferences for update
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email())
+  with check (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Users can delete their own subscription preferences
+drop policy if exists "Users can delete own subscription preferences" on public.subscription_preferences;
+create policy "Users can delete own subscription preferences"
+  on public.subscription_preferences for delete
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Users can view their own subscription preferences
+drop policy if exists "Users can view own subscription preferences" on public.subscription_preferences;
+create policy "Users can view own subscription preferences"
+  on public.subscription_preferences for select
+  to authenticated
+  using (auth.uid() = user_id or email = public.current_user_email());
+
+-- Policy: Admins can view all subscription preferences
+drop policy if exists "Admins can view subscription preferences" on public.subscription_preferences;
+create policy "Admins can view subscription preferences"
+  on public.subscription_preferences for select
+  to authenticated
+  using (public.is_admin());
+
+-- Add last_sent_at column to subscription_preferences
+alter table public.subscription_preferences
+  add column if not exists last_sent_at timestamptz;
+
+-- Email delivery logs table
+create table if not exists public.email_delivery_logs (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscription_preferences (id) on delete cascade,
+  email citext not null,
+  questions_sent jsonb not null,
+  sent_at timestamptz not null default now(),
+  status text not null check (status in ('sent', 'failed', 'bounced')),
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+-- Indexes for email delivery logs
+create index if not exists idx_email_delivery_logs_subscription_id on public.email_delivery_logs (subscription_id);
+create index if not exists idx_email_delivery_logs_email on public.email_delivery_logs (email);
+create index if not exists idx_email_delivery_logs_sent_at on public.email_delivery_logs (sent_at);
+create index if not exists idx_email_delivery_logs_status on public.email_delivery_logs (status);
+
+-- Enable RLS for email delivery logs
+alter table public.email_delivery_logs enable row level security;
+
+-- Policy: Admins can view all email delivery logs
+drop policy if exists "Admins can view email delivery logs" on public.email_delivery_logs;
+create policy "Admins can view email delivery logs"
+  on public.email_delivery_logs for select
+  to authenticated
+  using (public.is_admin());
+
+-- Policy: Service role can manage email delivery logs
+drop policy if exists "Service role can manage email delivery logs" on public.email_delivery_logs;
+create policy "Service role can manage email delivery logs"
+  on public.email_delivery_logs for all
+  to service_role
+  using (true)
+  with check (true);
+
+-- Unsubscribe tokens table
+create table if not exists public.unsubscribe_tokens (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscription_preferences (id) on delete cascade,
+  token text not null unique,
+  created_at timestamptz not null default now(),
+  used_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '1 year')
+);
+
+-- Indexes for unsubscribe tokens
+create index if not exists idx_unsubscribe_tokens_token on public.unsubscribe_tokens (token);
+create index if not exists idx_unsubscribe_tokens_subscription_id on public.unsubscribe_tokens (subscription_id);
+create index if not exists idx_unsubscribe_tokens_expires_at on public.unsubscribe_tokens (expires_at);
+
+-- Enable RLS for unsubscribe tokens
+alter table public.unsubscribe_tokens enable row level security;
+
+-- Policy: Anyone can insert unsubscribe tokens (for service operations)
+drop policy if exists "Anyone can insert unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Anyone can insert unsubscribe tokens"
+  on public.unsubscribe_tokens for insert
+  to anon, authenticated, service_role
+  with check (true);
+
+-- Policy: Anyone can select unsubscribe tokens (for unsubscribe operations)
+drop policy if exists "Anyone can select unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Anyone can select unsubscribe tokens"
+  on public.unsubscribe_tokens for select
+  to anon, authenticated, service_role
+  using (true);
+
+-- Policy: Service role can update unsubscribe tokens
+drop policy if exists "Service role can update unsubscribe tokens" on public.unsubscribe_tokens;
+create policy "Service role can update unsubscribe tokens"
+  on public.unsubscribe_tokens for update
+  to service_role
+  using (true)
+  with check (true);
