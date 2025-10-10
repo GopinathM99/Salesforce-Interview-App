@@ -8,7 +8,6 @@ import {
   updateSubscriptionLastSent,
   generateUnsubscribeToken
 } from '@/lib/emailService';
-import type { SubscriptionPreferences } from '@/lib/emailService';
 
 function getSupabaseClient(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
