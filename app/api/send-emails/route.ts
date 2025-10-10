@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getSubscriptionsDueForDelivery,
   generateQuestionsForSubscription,
@@ -8,8 +9,9 @@ import {
   updateSubscriptionLastSent,
   generateUnsubscribeToken
 } from '@/lib/emailService';
+import type { SubscriptionPreferences } from '@/lib/emailService';
 
-function getSupabaseClient() {
+function getSupabaseClient(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -18,6 +20,31 @@ function getSupabaseClient() {
   }
 
   return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+type SubscriptionProcessingResult = {
+  email: string;
+  status: 'sent' | 'failed' | 'error';
+  questionsCount?: number;
+  error?: string;
+  note?: string;
+};
+
+function getConcurrencyLimit(): number {
+  const defaultConcurrency = 3;
+  const raw = process.env.EMAIL_SEND_CONCURRENCY;
+  if (!raw) return defaultConcurrency;
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultConcurrency;
+}
+
+function getThrottleMs(): number {
+  const raw = process.env.EMAIL_SEND_THROTTLE_MS;
+  if (!raw) return 0;
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export async function POST(request: NextRequest) {
@@ -58,15 +85,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const supabase = getSupabaseClient();
+    const concurrencyLimit = getConcurrencyLimit();
+    const throttleMs = getThrottleMs();
+
     let sentCount = 0;
     let failedCount = 0;
-    const results = [];
+    const results: SubscriptionProcessingResult[] = [];
 
-    for (const subscription of subscriptions) {
+    const processSubscription = async (
+      subscription: SubscriptionPreferences
+    ): Promise<SubscriptionProcessingResult> => {
       try {
         console.log(`Processing subscription for ${subscription.email}...`);
-        
-        // Generate questions for this subscription
+
         const { questions, fallbackExplanation, failureReason } =
           await generateQuestionsForSubscription(subscription);
 
@@ -82,20 +114,15 @@ export async function POST(request: NextRequest) {
             errorMessage
           );
 
-          failedCount++;
-          results.push({
+          return {
             email: subscription.email,
             status: 'failed',
             error: errorMessage
-          });
-          continue;
+          };
         }
 
-        // Generate unsubscribe token
         const unsubscribeToken = generateUnsubscribeToken(subscription.id);
-        
-        // Store unsubscribe token in database
-        const supabase = getSupabaseClient();
+
         await supabase
           .from('unsubscribe_tokens')
           .insert({
@@ -103,7 +130,6 @@ export async function POST(request: NextRequest) {
             token: unsubscribeToken
           });
 
-        // Send email
         const emailResult = await sendEmailToSubscriber(
           subscription,
           questions,
@@ -111,63 +137,84 @@ export async function POST(request: NextRequest) {
         );
 
         if (emailResult.success) {
-          // Log successful delivery
           await logEmailDelivery(
             subscription.id,
             subscription.email,
             questions,
             'sent'
           );
-          
-          // Update last_sent_at timestamp
+
           await updateSubscriptionLastSent(subscription.id);
-          
-          sentCount++;
-          results.push({
-            email: subscription.email,
-            status: 'sent',
-            questionsCount: questions.length,
-            ...(fallbackExplanation ? { note: fallbackExplanation } : {})
-          });
-          
+
           if (fallbackExplanation) {
             console.log(`Email sent to ${subscription.email} with relaxed filters: ${fallbackExplanation}`);
           } else {
             console.log(`Email sent successfully to ${subscription.email}`);
           }
-        } else {
-          // Log failed delivery
-          await logEmailDelivery(
-            subscription.id,
-            subscription.email,
-            questions,
-            'failed',
-            emailResult.error
-          );
-          
-          failedCount++;
-          results.push({
+
+          return {
             email: subscription.email,
-            status: 'failed',
-            error: emailResult.error
-          });
-          
-          console.error(`Failed to send email to ${subscription.email}:`, emailResult.error);
+            status: 'sent',
+            questionsCount: questions.length,
+            ...(fallbackExplanation ? { note: fallbackExplanation } : {})
+          };
         }
 
-        // Add small delay between emails to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+        await logEmailDelivery(
+          subscription.id,
+          subscription.email,
+          questions,
+          'failed',
+          emailResult.error
+        );
+
+        console.error(`Failed to send email to ${subscription.email}:`, emailResult.error);
+
+        return {
+          email: subscription.email,
+          status: 'failed',
+          error: emailResult.error
+        };
       } catch (error) {
-        console.error(`Error processing subscription for ${subscription.email}:`, error);
-        failedCount++;
-        results.push({
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Error processing subscription for ${subscription.email}:`, errorMessage);
+
+        return {
           email: subscription.email,
           status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+          error: errorMessage
+        };
       }
-    }
+    };
+
+    const queue = [...subscriptions];
+    const workers = Array.from({
+      length: Math.min(concurrencyLimit, queue.length)
+    }, () =>
+      (async () => {
+        while (queue.length > 0) {
+          const subscription = queue.shift();
+          if (!subscription) {
+            break;
+          }
+
+          const outcome = await processSubscription(subscription);
+          results.push(outcome);
+
+          if (outcome.status === 'sent') {
+            sentCount++;
+          } else {
+            failedCount++;
+          }
+
+          if (throttleMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, throttleMs));
+          }
+        }
+      })()
+    );
+
+    await Promise.all(workers);
 
     console.log(`Email delivery completed. Sent: ${sentCount}, Failed: ${failedCount}`);
 
