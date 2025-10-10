@@ -1,38 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 
-const AVAILABLE_TOPICS = [
-  "SSO and IDP configuration",
-  "Connected Apps (OAuth)",
-  "IDP JIT Handler",
-  "Composite Query experience",
-  "Best Practices",
-  "Performance improvements",
-  "Troubleshooting issues",
-  "Agentforce",
-  "Apex",
-  "LWC",
-  "Aura",
-  "Triggers",
-  "Trigger handlers",
-  "Users",
-  "Role hierarchy",
-  "Sharing rules",
-  "Flows",
-  "Security",
-  "Sales Cloud",
-  "Service Cloud",
-  "Financial Services Cloud",
-  "Named credentials"
-];
-
 const DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 const QUESTION_TYPES = ["Knowledge", "Scenario"];
-const PRACTICE_MODES = ["Flashcards", "Multiple Choice"];
+// Practice mode is always Flashcards - no selection needed
 const DELIVERY_FREQUENCIES = ["Daily", "Weekly", "Bi-weekly"];
 const QUESTION_COUNTS = ["1", "2", "3", "4", "5"];
 
@@ -54,12 +29,14 @@ export default function SubscribePage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [subscriptionFeedback, setSubscriptionFeedback] = useState<string | null>(null);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState<boolean>(false);
   const [preferences, setPreferences] = useState<SubscriptionPreferences>({
     email: user?.email || "",
     topics: [],
     difficulties: [],
     questionTypes: [],
-    practiceModes: [],
+    practiceModes: ["Flashcards"], // Always flashcards
     questionCount: "3",
     deliveryFrequency: "Daily",
     includeAnswers: true,
@@ -71,6 +48,25 @@ export default function SubscribePage() {
       ? array.filter(i => i !== item)
       : [...array, item];
   };
+
+  useEffect(() => {
+    const loadTopics = async () => {
+      setTopicsLoading(true);
+      const { data, error } = await supabase.rpc("list_topics");
+      if (error) {
+        console.error("Failed to load topics", error);
+        setAvailableTopics([]);
+      } else {
+        const unique = Array.from(
+          new Set(((data as string[]) ?? []).filter((topic): topic is string => Boolean(topic)))
+        ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        setAvailableTopics(unique);
+      }
+      setTopicsLoading(false);
+    };
+
+    void loadTopics();
+  }, []);
 
   const handleTopicToggle = (topic: string) => {
     setPreferences(prev => ({
@@ -93,12 +89,7 @@ export default function SubscribePage() {
     }));
   };
 
-  const handlePracticeModeToggle = (mode: string) => {
-    setPreferences(prev => ({
-      ...prev,
-      practiceModes: toggleArrayItem(prev.practiceModes, mode)
-    }));
-  };
+  // Practice mode toggle removed - always flashcards
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -123,9 +114,9 @@ export default function SubscribePage() {
       return;
     }
 
-    if (preferences.questionTypes.length === 0 && preferences.practiceModes.length === 0) {
+    if (preferences.questionTypes.length === 0) {
       setSubscriptionStatus("error");
-      setSubscriptionFeedback("Please select at least one question type or practice mode.");
+      setSubscriptionFeedback("Please select at least one question type.");
       return;
     }
 
@@ -133,32 +124,66 @@ export default function SubscribePage() {
     setSubscriptionFeedback(null);
 
     try {
-      // Store subscription preferences in database
-      const { error } = await supabase
-        .from("subscription_preferences")
-        .upsert({
-          email: trimmedEmail,
-          user_id: user?.id || null,
-          topics: preferences.topics,
-          difficulties: preferences.difficulties,
-          question_types: preferences.questionTypes,
-          practice_modes: preferences.practiceModes,
-          question_count: parseInt(preferences.questionCount),
-          delivery_frequency: preferences.deliveryFrequency,
-          include_answers: preferences.includeAnswers,
-          custom_message: preferences.customMessage || null,
-          is_active: true,
-          updated_at: new Date().toISOString()
-        });
+      // Find an existing subscription record for this user/email so we update instead of inserting
+      let existingId: string | null = null;
+
+      if (user?.id) {
+        const { data: existingByUser, error: lookupError } = await supabase
+          .from("subscription_preferences")
+          .select("id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (lookupError && lookupError.code !== "PGRST116") {
+          throw lookupError;
+        }
+
+        existingId = existingByUser?.id ?? null;
+      }
+
+      if (!existingId) {
+        const { data: existingByEmail, error: emailLookupError } = await supabase
+          .from("subscription_preferences")
+          .select("id")
+          .eq("email", trimmedEmail)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (emailLookupError && emailLookupError.code !== "PGRST116") {
+          throw emailLookupError;
+        }
+
+        existingId = existingByEmail?.id ?? null;
+      }
+
+      const payload = {
+        ...(existingId ? { id: existingId } : {}),
+        email: trimmedEmail,
+        user_id: user?.id || null,
+        topics: preferences.topics,
+        difficulties: preferences.difficulties,
+        question_types: preferences.questionTypes,
+        practice_modes: preferences.practiceModes,
+        question_count: parseInt(preferences.questionCount, 10),
+        delivery_frequency: preferences.deliveryFrequency,
+        include_answers: preferences.includeAnswers,
+        custom_message: preferences.customMessage || null,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      };
+
+      // Store subscription preferences in database (update if id exists, insert otherwise)
+      const { error } = await supabase.from("subscription_preferences").upsert(payload, { onConflict: "id" });
 
       if (error) {
         throw error;
       }
 
       setSubscriptionStatus("success");
-      const selectedTypes = [...preferences.questionTypes, ...preferences.practiceModes];
       setSubscriptionFeedback(
-        `Successfully subscribed! You'll receive ${preferences.deliveryFrequency.toLowerCase()} challenges with ${preferences.questionCount} question${preferences.questionCount !== '1' ? 's' : ''} covering ${preferences.topics.length} topic${preferences.topics.length > 1 ? 's' : ''} with ${selectedTypes.join(', ')} questions.`
+        `Successfully subscribed! You'll receive ${preferences.deliveryFrequency.toLowerCase()} challenges with ${preferences.questionCount} question${preferences.questionCount !== '1' ? 's' : ''} covering ${preferences.topics.length} topic${preferences.topics.length > 1 ? 's' : ''} in flashcard format.`
       );
     } catch (error) {
       console.error("Subscription error:", error);
@@ -200,18 +225,28 @@ export default function SubscribePage() {
           <div className="card">
             <h3>Topics *</h3>
             <p className="muted">Select the Salesforce topics you want to focus on:</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
-              {AVAILABLE_TOPICS.map(topic => (
-                <label key={topic} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={preferences.topics.includes(topic)}
-                    onChange={() => handleTopicToggle(topic)}
-                  />
-                  <span>{topic}</span>
-                </label>
-              ))}
-            </div>
+            {topicsLoading ? (
+              <p className="muted">Loading topics…</p>
+            ) : availableTopics.length === 0 ? (
+              <p className="muted">
+                No topics available yet. Add questions in Supabase to populate this list.
+              </p>
+            ) : (
+              <div
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}
+              >
+                {availableTopics.map((topic) => (
+                  <label key={topic} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={preferences.topics.includes(topic)}
+                      onChange={() => handleTopicToggle(topic)}
+                    />
+                    <span>{topic}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Difficulty Section */}
@@ -250,23 +285,7 @@ export default function SubscribePage() {
             </div>
           </div>
 
-          {/* Practice Modes Section */}
-          <div className="card">
-            <h3>Practice Modes</h3>
-            <p className="muted">Select how you want to practice with flashcards and multiple choice questions:</p>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              {PRACTICE_MODES.map(mode => (
-                <label key={mode} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={preferences.practiceModes.includes(mode)}
-                    onChange={() => handlePracticeModeToggle(mode)}
-                  />
-                  <span>{mode}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          {/* Practice Mode is always Flashcards - no selection needed */}
 
           {/* Number of Questions Section */}
           <div className="card">
@@ -374,4 +393,3 @@ export default function SubscribePage() {
     </div>
   );
 }
-

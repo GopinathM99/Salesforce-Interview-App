@@ -8,31 +8,6 @@ import AdminAccessShell from "@/components/AdminAccessShell";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 
-const DEFAULT_TOPIC_OPTIONS = [
-  "SSO and IDP configuration",
-  "Connected Apps (OAuth)",
-  "IDP JIT Handler",
-  "Composite Query experience",
-  "Best Practices",
-  "Performance improvements",
-  "Troubleshooting issues",
-  "Agentforce",
-  "Apex",
-  "LWC",
-  "Aura",
-  "Triggers",
-  "Trigger handlers",
-  "Users",
-  "Role hierarchy",
-  "Sharing rules",
-  "Flows",
-  "Security",
-  "Sales Cloud",
-  "Service Cloud",
-  "Financial Services Cloud",
-  "Named credentials"
-];
-
 const DIFFICULTY_CHOICES = ["Easy", "Medium", "Hard"];
 const QUESTION_COUNT_CHOICES = ["5", "10"];
 const QUESTION_KIND_CHOICES = ["Knowledge", "Scenario", "Coding"];
@@ -133,8 +108,13 @@ function Content() {
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
     const { data, error } = await supabase.rpc("list_topics");
-    if (!error) {
-      const list = ((data as string[]) ?? []).filter((t): t is string => Boolean(t));
+    if (error) {
+      console.error("Failed to load topics", error);
+      setTopics([]);
+    } else {
+      const list = Array.from(
+        new Set(((data as string[]) ?? []).filter((topic): topic is string => Boolean(topic)))
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
       setTopics(list);
     }
     setTopicsLoading(false);
@@ -144,13 +124,7 @@ function Content() {
     void loadTopics();
   }, [loadTopics]);
 
-  const topicOptions = useMemo(() => {
-    const merged = new Set<string>(DEFAULT_TOPIC_OPTIONS);
-    topics.forEach((topic) => {
-      if (topic) merged.add(topic);
-    });
-    return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  }, [topics]);
+  const topicOptions = useMemo(() => [...topics], [topics]);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((previous) =>
@@ -391,26 +365,32 @@ function Content() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={{ fontSize: 14, color: "var(--muted)" }}>Topics</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {topicOptions.map((topic) => {
-              const isSelected = selectedTopics.includes(topic);
-              return (
-                <button
-                  key={topic}
-                  type="button"
-                  className="pill"
-                  onClick={() => toggleTopic(topic)}
-                  aria-pressed={isSelected}
-                  style={{
-                    background: isSelected ? "#122a1d" : "#16213b",
-                    borderColor: isSelected ? "var(--accent)" : "#233453",
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  {topic}
-                </button>
-              );
-            })}
+            {topicsLoading && <span className="muted">Loading topics…</span>}
+            {!topicsLoading && topicOptions.length === 0 && (
+              <span className="muted">No topics available. Add questions in Supabase first.</span>
+            )}
+            {!topicsLoading &&
+              topicOptions.length > 0 &&
+              topicOptions.map((topic) => {
+                const isSelected = selectedTopics.includes(topic);
+                return (
+                  <button
+                    key={topic}
+                    type="button"
+                    className="pill"
+                    onClick={() => toggleTopic(topic)}
+                    aria-pressed={isSelected}
+                    style={{
+                      background: isSelected ? "#122a1d" : "#16213b",
+                      borderColor: isSelected ? "var(--accent)" : "#233453",
+                      color: "inherit",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {topic}
+                  </button>
+                );
+              })}
           </div>
           {selectedTopics.length > 0 && (
             <span className="muted" style={{ fontSize: 12 }}>

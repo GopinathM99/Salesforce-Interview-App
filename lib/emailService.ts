@@ -77,8 +77,6 @@ export async function generateQuestionsForSubscription(
 ): Promise<QuestionGenerationResult> {
   try {
     const supabase = getSupabaseClient();
-    const mcqOnly = preferences.question_types.includes('MCQ') &&
-      !preferences.practice_modes.includes('Flashcards');
     const includeAttempted = false; // Don't include attempted questions for email
 
     type RandomQuestionPayload = {
@@ -87,14 +85,16 @@ export async function generateQuestionsForSubscription(
       difficulties: string[] | null;
       mcq_only: boolean;
       include_attempted: boolean;
+      flashcards_only: boolean;
     };
 
     const basePayload: RandomQuestionPayload = {
       n: preferences.question_count,
       topics: preferences.topics.length > 0 ? preferences.topics : null,
       difficulties: preferences.difficulties.length > 0 ? preferences.difficulties : null,
-      mcq_only: mcqOnly,
-      include_attempted: includeAttempted
+      mcq_only: false,
+      include_attempted: includeAttempted,
+      flashcards_only: true // Show flashcards only (questions without MCQ metadata)
     };
 
     const attempts: Array<{
@@ -106,32 +106,19 @@ export async function generateQuestionsForSubscription(
 
     let payloadTracker = { ...basePayload };
 
-    if (basePayload.topics) {
-      payloadTracker = { ...payloadTracker, topics: null };
-      attempts.push({
-        payload: { ...payloadTracker },
-        explanation: 'Relaxed topic filter because no matching questions were found.'
-      });
-    }
+    // Don't relax topic filter - users specifically selected these topics
+    // If no flashcards exist for selected topics, return empty rather than random topics
 
+    // Only relax difficulty filter if no questions found with exact topic match
     if (basePayload.difficulties) {
-      const relaxedTopics = !basePayload.topics;
       payloadTracker = { ...payloadTracker, difficulties: null };
       attempts.push({
         payload: { ...payloadTracker },
-        explanation: relaxedTopics
-          ? 'Relaxed difficulty filter because no matching questions were found.'
-          : 'Relaxed topic and difficulty filters because no matching questions were found.'
+        explanation: 'Relaxed difficulty filter because no matching flashcards were found for the selected topics.'
       });
     }
 
-    if (mcqOnly) {
-      payloadTracker = { ...payloadTracker, mcq_only: false };
-      attempts.push({
-        payload: { ...payloadTracker },
-        explanation: 'Relaxed question type preference to include all questions because no MCQ content was available.'
-      });
-    }
+    // MCQ-only logic removed since we always use flashcards mode
 
     let lastError: string | undefined;
 
@@ -349,11 +336,18 @@ export function generateUnsubscribeToken(subscriptionId: string): string {
 /**
  * Get active subscriptions that are due for email delivery
  */
-export async function getSubscriptionsDueForDelivery(): Promise<SubscriptionPreferences[]> {
+interface SubscriptionFetchOptions {
+  includeAllActive?: boolean;
+}
+
+export async function getSubscriptionsDueForDelivery(
+  options: SubscriptionFetchOptions = {}
+): Promise<SubscriptionPreferences[]> {
   try {
     const supabase = getSupabaseClient();
     const now = new Date();
     const today = now.toISOString().split('T')[0];
+    const includeAllActive = options.includeAllActive ?? false;
     
     // Get active subscriptions
     const { data: subscriptions, error } = await supabase
@@ -364,6 +358,10 @@ export async function getSubscriptionsDueForDelivery(): Promise<SubscriptionPref
     if (error) {
       console.error('Error fetching subscriptions:', error);
       return [];
+    }
+
+    if (includeAllActive) {
+      return subscriptions;
     }
 
     // Filter subscriptions based on delivery frequency

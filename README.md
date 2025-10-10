@@ -61,10 +61,11 @@ Open http://localhost:3000 to use the app.
   - `created_at timestamptz`
   - `updated_at timestamptz`
 
-- RPC `public.random_questions(n, topics, difficulties, mcq_only)`
+- RPC `public.random_questions(n, topics, difficulties, mcq_only, include_attempted, flashcards_only)`
   - Returns `n` random rows, optionally filtered by topic/difficulty.
   - Includes an `mcq` JSON blob when the question has MCQ metadata.
   - When `mcq_only = true`, only returns rows with MCQ metadata.
+- When `flashcards_only = true`, every question is eligible so flashcards surface questions even if MCQ metadata exists.
 
 **RLS Policies**
 

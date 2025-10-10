@@ -227,20 +227,22 @@ export default function Page() {
             <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
           )}
         </div>
-        <div className="card">
-          <h3>Subscribe to Daily Challenges</h3>
-          <p>
-            Get personalized Salesforce interview questions delivered to your inbox. 
-            Choose your topics, difficulty levels, and question types to create the perfect study plan.
-          </p>
-          <Link
-            className="btn primary"
-            href="/subscribe"
-            style={{ marginTop: 12, display: "inline-block" }}
-          >
-            Customize Your Subscription
-          </Link>
-        </div>
+        {user && (
+          <div className="card">
+            <h3>Subscribe to Daily Challenges</h3>
+            <p>
+              Get personalized Salesforce interview questions delivered to your inbox. 
+              Choose your topics, difficulty levels, and question types to create the perfect study plan.
+            </p>
+            <Link
+              className="btn primary"
+              href="/subscribe"
+              style={{ marginTop: 12, display: "inline-block" }}
+            >
+              Customize Your Subscription
+            </Link>
+          </div>
+        )}
         {user && isAdmin && !checkingAdmin && (
           <div className="card">
             <h3>Admin Panel</h3>

@@ -92,6 +92,7 @@ export default function EmailManagementPage() {
           'Authorization': `Bearer ${process.env.NEXT_PUBLIC_EMAIL_SERVICE_TOKEN || 'test-token'}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ sendAll: true }),
       });
 
       const data = await response.json();

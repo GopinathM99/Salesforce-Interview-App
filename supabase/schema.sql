@@ -333,6 +333,8 @@ create table if not exists public.subscription_preferences (
 create index if not exists idx_subscription_preferences_email on public.subscription_preferences (email);
 create index if not exists idx_subscription_preferences_user_id on public.subscription_preferences (user_id);
 create index if not exists idx_subscription_preferences_active on public.subscription_preferences (is_active);
+create unique index if not exists subscription_preferences_email_unique
+  on public.subscription_preferences (email);
 
 -- Enable RLS for subscription preferences
 alter table public.subscription_preferences enable row level security;

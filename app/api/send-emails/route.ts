@@ -21,8 +21,19 @@ function getSupabaseClient() {
 }
 
 export async function POST(request: NextRequest) {
-  void request;
   try {
+    const url = new URL(request.url);
+    let includeAllActive = url.searchParams.get('sendAll') === '1';
+
+    if (!includeAllActive && request.headers.get('content-type')?.includes('application/json')) {
+      try {
+        const body = await request.json();
+        includeAllActive = Boolean(body?.sendAll ?? body?.includeAllActive);
+      } catch (error) {
+        console.warn('send-emails: failed to parse JSON body', error);
+      }
+    }
+
     // Temporarily allow anyone to send emails (for testing)
     // const authHeader = request.headers.get('authorization');
     // const expectedToken = process.env.EMAIL_SERVICE_TOKEN;
@@ -34,12 +45,14 @@ export async function POST(request: NextRequest) {
     console.log('Starting email delivery process...');
     
     // Get subscriptions due for delivery
-    const subscriptions = await getSubscriptionsDueForDelivery();
-    console.log(`Found ${subscriptions.length} subscriptions due for delivery`);
+    const subscriptions = await getSubscriptionsDueForDelivery({ includeAllActive });
+    console.log(
+      `Found ${subscriptions.length} subscriptions ${includeAllActive ? 'matching include-all filter' : 'due for delivery'}`
+    );
 
     if (subscriptions.length === 0) {
       return NextResponse.json({ 
-        message: 'No subscriptions due for delivery',
+        message: includeAllActive ? 'No active subscriptions found' : 'No subscriptions due for delivery',
         sent: 0,
         failed: 0
       });

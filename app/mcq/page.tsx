@@ -34,7 +34,8 @@ export default function McqPage() {
       topics: topic ? [topic] : null,
       difficulties: difficulty ? [difficulty] : null,
       mcq_only: true,
-      include_attempted: false
+      include_attempted: false,
+      flashcards_only: false
     });
     if (error) {
       setError(error.message);
