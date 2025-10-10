@@ -79,6 +79,13 @@ export async function generateQuestionsForSubscription(
     const supabase = getSupabaseClient();
     const includeAttempted = false; // Don't include attempted questions for email
 
+    const topics = Array.isArray(preferences.topics) ? preferences.topics : [];
+    const difficulties = Array.isArray(preferences.difficulties) ? preferences.difficulties : [];
+    const questionCount =
+      typeof preferences.question_count === 'number' && Number.isFinite(preferences.question_count)
+        ? preferences.question_count
+        : 3;
+
     type RandomQuestionPayload = {
       n: number;
       topics: string[] | null;
@@ -89,9 +96,9 @@ export async function generateQuestionsForSubscription(
     };
 
     const basePayload: RandomQuestionPayload = {
-      n: preferences.question_count,
-      topics: preferences.topics.length > 0 ? preferences.topics : null,
-      difficulties: preferences.difficulties.length > 0 ? preferences.difficulties : null,
+      n: questionCount,
+      topics: topics.length > 0 ? topics : null,
+      difficulties: difficulties.length > 0 ? difficulties : null,
       mcq_only: false,
       include_attempted: includeAttempted,
       flashcards_only: true // Show flashcards only (questions without MCQ metadata)
