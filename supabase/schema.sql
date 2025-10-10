@@ -375,6 +375,14 @@ create policy "Admins can view subscription preferences"
   to authenticated
   using (public.is_admin());
 
+-- Policy: Admins can update all subscription preferences
+drop policy if exists "Admins can update subscription preferences" on public.subscription_preferences;
+create policy "Admins can update subscription preferences"
+  on public.subscription_preferences for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- Add last_sent_at column to subscription_preferences
 alter table public.subscription_preferences
   add column if not exists last_sent_at timestamptz;

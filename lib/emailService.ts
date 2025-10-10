@@ -242,6 +242,18 @@ export function generateEmailHTML(
         </div>
         
         <div class="footer">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">Your Subscription Details:</h4>
+            <p style="margin: 5px 0; font-size: 13px; color: #666;">
+              <strong>Topics:</strong> ${preferences.topics.join(', ')}
+            </p>
+            <p style="margin: 5px 0; font-size: 13px; color: #666;">
+              <strong>Schedule:</strong> ${preferences.delivery_frequency}
+            </p>
+            <p style="margin: 5px 0; font-size: 13px; color: #666;">
+              <strong>Questions per email:</strong> ${preferences.question_count}
+            </p>
+          </div>
           <div class="unsubscribe">
             <p>You're receiving this email because you subscribed to Salesforce interview practice questions.</p>
             <p><a href="${unsubscribeUrl}">Unsubscribe</a> | <a href="${baseUrl}/subscribe">Update Preferences</a></p>
