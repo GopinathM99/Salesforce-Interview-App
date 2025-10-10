@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const authHeader = request.headers.get('authorization');
+    const expectedServiceToken = process.env.EMAIL_SERVICE_TOKEN;
     const sendAllQuery = url.searchParams.get('sendAll');
 
     let includeAllActive = sendAllQuery === '1' || sendAllQuery?.toLowerCase() === 'true';
@@ -68,7 +69,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!includeAllActive && !authHeader) {
+    const isCronAuth = Boolean(
+      expectedServiceToken && authHeader === `Bearer ${expectedServiceToken}`
+    );
+
+    if (!includeAllActive && !isCronAuth) {
       includeAllActive = true;
     }
 
