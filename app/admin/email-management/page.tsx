@@ -89,7 +89,6 @@ export default function EmailManagementPage() {
       const response = await fetch('/api/send-emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_EMAIL_SERVICE_TOKEN || 'test-token'}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ sendAll: true }),

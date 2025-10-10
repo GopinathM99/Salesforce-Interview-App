@@ -54,8 +54,8 @@ as $$
       (not mcq_only and not flashcards_only)
       -- Show only MCQs if mcq_only is true
       or (mcq_only and mcq.id is not null)
-      -- Flashcards view should surface every question, even if an MCQ exists
-      or flashcards_only
+      -- Show only flashcards (questions WITHOUT MCQ metadata) if flashcards_only is true
+      or (flashcards_only and mcq.id is null)
     )
     and (
       include_attempted
