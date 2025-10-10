@@ -97,7 +97,11 @@ export default function EmailManagementPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`Email delivery completed. Sent: ${data.sent}, Failed: ${data.failed}`);
+        const total = typeof data.total === 'number' ? data.total : 0;
+        const mode = data.includeAllActive ? 'all active subscriptions' : 'due subscriptions only';
+        setMessage(
+          `Email delivery completed (${mode}; total ${total}). Sent: ${data.sent}, Failed: ${data.failed}`
+        );
         // Reload data to show updated information
         loadSubscriptions();
         loadEmailLogs();

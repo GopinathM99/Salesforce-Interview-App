@@ -47,10 +47,17 @@ function getThrottleMs(): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    let includeAllActive = url.searchParams.get('sendAll') === '1';
+    const authHeader = request.headers.get('authorization');
+    const sendAllQuery = url.searchParams.get('sendAll');
+
+    let includeAllActive = sendAllQuery === '1' || sendAllQuery?.toLowerCase() === 'true';
 
     if (!includeAllActive && request.headers.get('content-type')?.includes('application/json')) {
       try {
@@ -59,6 +66,10 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.warn('send-emails: failed to parse JSON body', error);
       }
+    }
+
+    if (!includeAllActive && !authHeader) {
+      includeAllActive = true;
     }
 
     // Temporarily allow anyone to send emails (for testing)
@@ -86,11 +97,9 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseClient();
-    const concurrencyLimit = getConcurrencyLimit();
-    const throttleMs = getThrottleMs();
+    const concurrencyLimit = Math.max(1, getConcurrencyLimit());
+    const throttleMs = Math.max(0, getThrottleMs());
 
-    let sentCount = 0;
-    let failedCount = 0;
     const results: SubscriptionProcessingResult[] = [];
 
     const processSubscription = async (
@@ -187,34 +196,29 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    const queue = [...subscriptions];
-    const workers = Array.from({
-      length: Math.min(concurrencyLimit, queue.length)
-    }, () =>
-      (async () => {
-        while (queue.length > 0) {
-          const subscription = queue.shift();
-          if (!subscription) {
-            break;
-          }
+    let currentIndex = 0;
+    const workerCount = Math.min(concurrencyLimit, subscriptions.length);
 
-          const outcome = await processSubscription(subscription);
-          results.push(outcome);
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (currentIndex < subscriptions.length) {
+        const nextIndex = currentIndex;
+        currentIndex += 1;
 
-          if (outcome.status === 'sent') {
-            sentCount++;
-          } else {
-            failedCount++;
-          }
+        const subscription = subscriptions[nextIndex];
 
-          if (throttleMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, throttleMs));
-          }
+        const outcome = await processSubscription(subscription);
+        results.push(outcome);
+
+        if (throttleMs > 0) {
+          await delay(throttleMs);
         }
-      })()
-    );
+      }
+    });
 
     await Promise.all(workers);
+
+    const sentCount = results.filter(result => result.status === 'sent').length;
+    const failedCount = results.length - sentCount;
 
     console.log(`Email delivery completed. Sent: ${sentCount}, Failed: ${failedCount}`);
 
@@ -223,6 +227,7 @@ export async function POST(request: NextRequest) {
       sent: sentCount,
       failed: failedCount,
       total: subscriptions.length,
+      includeAllActive,
       results
     });
 
