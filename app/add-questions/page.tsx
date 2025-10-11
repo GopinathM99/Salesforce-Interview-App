@@ -147,6 +147,8 @@ export default function AddQuestionsPage() {
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [sqlStatuses, setSqlStatuses] = useState<Record<string, SqlExecutionStatus>>({});
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
 
   const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
   const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
@@ -169,6 +171,28 @@ export default function AddQuestionsPage() {
     async (messageId: string) => {
       const statements = sqlStatementsByMessage.get(messageId);
       if (!statements || statements.length === 0) {
+        return;
+      }
+
+      if (isAdmin === false) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "error",
+            message: "Only admin users can insert records. Contact an administrator to proceed."
+          }
+        }));
+        return;
+      }
+
+      if (isAdmin === null) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "error",
+            message: "Verifying your admin access. Please try again in a moment."
+          }
+        }));
         return;
       }
 
@@ -223,7 +247,7 @@ export default function AddQuestionsPage() {
         }));
       }
     },
-    [session?.access_token, sqlStatementsByMessage]
+    [isAdmin, session?.access_token, sqlStatementsByMessage]
   );
 
   useEffect(() => {
@@ -251,6 +275,30 @@ export default function AddQuestionsPage() {
     };
 
     void loadAttempts();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      setAdminCheckError(null);
+      return;
+    }
+
+    const verifyAdmin = async () => {
+      setAdminCheckError(null);
+      setIsAdmin(null);
+      const { data, error } = await supabase.rpc("is_admin");
+      if (error) {
+        console.error("Failed to confirm admin access", error);
+        setAdminCheckError("Could not confirm admin access. Only admins can insert SQL from Gemini.");
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(Boolean(data));
+    };
+
+    void verifyAdmin();
   }, [user]);
 
   useEffect(() => {
@@ -844,21 +892,63 @@ export default function AddQuestionsPage() {
                     >
                       <span className="muted" style={{ fontSize: 12 }}>
                         Gemini suggested {statements.length} INSERT statement
-                        {statements.length === 1 ? "" : "s"}. Review them before inserting into Supabase.
+                        {statements.length === 1 ? "" : "s"}. Review them below, then click the button to run them in Supabase.
                       </span>
-                      <button
-                        type="button"
-                        className="btn success"
-                        onClick={() => handleExecuteSql(message.id)}
-                        disabled={running || succeeded}
-                        style={{ alignSelf: "flex-start" }}
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          background: "#0b1322",
+                          border: "1px solid #1f2f4a",
+                          borderRadius: 8,
+                          padding: 10,
+                          maxWidth: "100%"
+                        }}
                       >
-                        {running
-                          ? "Inserting…"
-                          : succeeded
-                            ? "Inserted"
-                            : "Insert into Supabase"}
-                      </button>
+                        {statements.map((statement, index) => (
+                          <code
+                            key={`${message.id}-sql-${index}`}
+                            style={{
+                              display: "block",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              fontSize: 12,
+                              color: "#d6e4ff"
+                            }}
+                          >
+                            {statement}
+                          </code>
+                        ))}
+                      </div>
+                      {adminCheckError ? (
+                        <span className="muted" style={{ fontSize: 12, color: "#f69988" }}>
+                          {adminCheckError}
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="btn success"
+                            onClick={() => handleExecuteSql(message.id)}
+                            disabled={running || succeeded || isAdmin !== true}
+                            style={{ alignSelf: "flex-start" }}
+                          >
+                            {running
+                              ? "Inserting…"
+                              : succeeded
+                                ? "Inserted"
+                                : isAdmin === null
+                                  ? "Checking admin access…"
+                                  : "Insert into Supabase"}
+                          </button>
+                          {isAdmin === false && (
+                            <span className="muted" style={{ fontSize: 12, color: "#f69988" }}>
+                              Only admin users can run these statements. Ask an administrator to sign in to execute them.
+                            </span>
+                          )}
+                        </>
+                      )}
                       {status?.message && (
                         <span
                           className="muted"
