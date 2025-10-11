@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+
 type ExecuteSqlRequest = {
   statements?: string[];
 };
@@ -19,8 +21,20 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      const missing = [
+        !supabaseUrl ? "NEXT_PUBLIC_SUPABASE_URL" : null,
+        !supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : null,
+        !supabaseServiceKey ? "SUPABASE_SERVICE_ROLE_KEY" : null
+      ].filter(Boolean) as string[];
+
+      console.error("Missing Supabase env vars", missing);
+
       return NextResponse.json(
-        { error: "Supabase environment variables are not configured." },
+        {
+          error: missing.length
+            ? `Supabase environment variables are missing: ${missing.join(", ")}.`
+            : "Supabase environment variables are not configured."
+        },
         { status: 500 }
       );
     }
