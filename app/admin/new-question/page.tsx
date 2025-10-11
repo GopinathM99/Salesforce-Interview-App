@@ -9,12 +9,60 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 
 const DIFFICULTY_CHOICES = ["Easy", "Medium", "Hard"];
-const QUESTION_COUNT_CHOICES = ["5", "10"];
+const QUESTION_COUNT_CHOICES = ["1", "2", "5", "10"];
 const QUESTION_KIND_CHOICES = ["Knowledge", "Scenario", "Coding"];
 
 type GeminiMessage = {
   role: "user" | "assistant";
   content: string;
+};
+
+type SqlExecutionStatus = {
+  state: "idle" | "running" | "success" | "error";
+  message?: string;
+};
+
+const extractInsertStatements = (content: string): string[] => {
+  const statements: string[] = [];
+  const blockRegex = /```(?:sql)?\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockRegex.exec(content)) !== null) {
+    const block = match[1];
+    const splits = block
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    splits.forEach((statement) => {
+      const normalized = statement.replace(/;+$/g, "").trim();
+      const startsWithInsert = /^insert\s+into\s+/i.test(normalized);
+      const startsWithWith = /^with\s+/i.test(normalized) && /insert\s+into\s+/i.test(normalized);
+
+      if (startsWithInsert || startsWithWith) {
+        statements.push(statement.endsWith(";") ? statement : `${statement};`);
+      }
+    });
+  }
+
+  if (statements.length === 0) {
+    const fallbackSplits = content
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    fallbackSplits.forEach((statement) => {
+      const normalized = statement.replace(/;+$/g, "").trim();
+      const startsWithInsert = /^insert\s+into\s+/i.test(normalized);
+      const startsWithWith = /^with\s+/i.test(normalized) && /insert\s+into\s+/i.test(normalized);
+
+      if (startsWithInsert || startsWithWith) {
+        statements.push(statement.endsWith(";") ? statement : `${statement};`);
+      }
+    });
+  }
+
+  return statements;
 };
 
 const responsePanelStyle: CSSProperties = {
@@ -95,15 +143,18 @@ function Content() {
   const [topics, setTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
-  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(["Medium", "Hard"]);
   const [selectedCount, setSelectedCount] = useState<string | null>("10");
-  const [selectedKind, setSelectedKind] = useState<string | null>("Knowledge");
+  const [selectedKind, setSelectedKind] = useState<string | null>("Scenario");
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [geminiError, setGeminiError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string>("");
   const [geminiFollowUpResponse, setGeminiFollowUpResponse] = useState<string>("");
   const [followUpCopied, setFollowUpCopied] = useState(false);
   const [followUpCopyError, setFollowUpCopyError] = useState<string | null>(null);
+  const [insertStatus, setInsertStatus] = useState<SqlExecutionStatus>({ state: "idle" });
+
+  const insertStatements = useMemo(() => extractInsertStatements(geminiFollowUpResponse), [geminiFollowUpResponse]);
 
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
@@ -145,14 +196,14 @@ function Content() {
   const handleKindChange = (kind: string) => {
     setSelectedKind(kind);
     if (kind === "Coding") {
-      setSelectedCount("5");
+      setSelectedCount("1");
     } else {
       setSelectedCount("10");
     }
   };
 
   const handleCountChange = (count: string) => {
-    if (selectedKind === "Coding" && count !== "5") return;
+    if (selectedKind === "Coding" && count !== "1" && count !== "2") return;
     setSelectedCount(count);
   };
 
@@ -272,14 +323,17 @@ function Content() {
 
       setGeminiResponse(primary);
 
-      const followUpMessages: GeminiMessage[] = [
-        { role: "user", content: geminiPrompt },
-        { role: "assistant", content: primary },
-        { role: "user", content: FOLLOW_UP_PROMPT }
-      ];
+      // Skip the Supabase INSERT SQL request for coding questions
+      if (selectedKind !== "Coding") {
+        const followUpMessages: GeminiMessage[] = [
+          { role: "user", content: geminiPrompt },
+          { role: "assistant", content: primary },
+          { role: "user", content: FOLLOW_UP_PROMPT }
+        ];
 
-      const followUp = await streamGemini(followUpMessages);
-      setGeminiFollowUpResponse(followUp);
+        const followUp = await streamGemini(followUpMessages);
+        setGeminiFollowUpResponse(followUp);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Gemini error.";
       setGeminiError(message);
@@ -302,6 +356,64 @@ function Content() {
       setFollowUpCopyError(message);
     }
   };
+
+  const handleInsertIntoSupabase = useCallback(async () => {
+    if (!geminiFollowUpResponse || insertStatements.length === 0 || insertStatus.state === "running") {
+      if (geminiFollowUpResponse && insertStatements.length === 0 && insertStatus.state !== "running") {
+        setInsertStatus({ state: "error", message: "No INSERT statements detected in Gemini follow-up." });
+      }
+      return;
+    }
+
+    let accessToken = session?.access_token ?? null;
+    if (!accessToken) {
+      const { data } = await supabase.auth.getSession();
+      accessToken = data.session?.access_token ?? null;
+    }
+
+    if (!accessToken) {
+      setInsertStatus({ state: "error", message: "Missing Supabase session. Sign in again to continue." });
+      return;
+    }
+
+    setInsertStatus({ state: "running" });
+
+    try {
+      const sanitizedStatements = insertStatements.map((statement) => statement.replace(/;+$/g, "").trim());
+
+      const response = await fetch("/api/admin/execute-sql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ statements: sanitizedStatements })
+      });
+
+      const data = (await response.json()) as { error?: string; success?: boolean; executed?: number };
+
+      if (!response.ok || data?.success !== true) {
+        const message = data?.error || "Failed to insert statements.";
+        setInsertStatus({ state: "error", message });
+        return;
+      }
+
+      setInsertStatus({
+        state: "success",
+        message:
+          data.executed && data.executed > 0
+            ? `Inserted ${data.executed} statement${data.executed === 1 ? "" : "s"}.`
+            : "Insert complete."
+      });
+    } catch (insertError) {
+      const message = insertError instanceof Error ? insertError.message : "Unexpected error inserting records.";
+      setInsertStatus({ state: "error", message });
+    }
+  }, [geminiFollowUpResponse, insertStatements, insertStatus.state, session?.access_token]);
+
+  useEffect(() => {
+    setInsertStatus({ state: "idle" });
+  }, [geminiFollowUpResponse]);
 
   const geminiPrompt = useMemo(() => {
     const countLabel = selectedCount ?? "3";
@@ -469,7 +581,7 @@ function Content() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={{ fontSize: 14, color: "var(--muted)" }}>Number of questions</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {QUESTION_COUNT_CHOICES.map((count) => {
+            {(selectedKind === "Coding" ? ["1", "2"] : QUESTION_COUNT_CHOICES).map((count) => {
               const isSelected = selectedCount === count;
               return (
                 <button
@@ -562,8 +674,33 @@ function Content() {
                 <button className="btn" type="button" onClick={() => void handleCopyFollowUp()}>
                   Copy
                 </button>
+                <button
+                  className="btn success"
+                  type="button"
+                  onClick={() => void handleInsertIntoSupabase()}
+                  disabled={insertStatus.state === "running" || insertStatements.length === 0}
+                >
+                  {insertStatus.state === "running"
+                    ? "Inserting…"
+                    : insertStatus.state === "success"
+                      ? "Inserted"
+                      : "Insert into Supabase"}
+                </button>
               </div>
             </div>
+            {insertStatements.length === 0 && geminiFollowUpResponse && (
+              <span className="muted" style={{ fontSize: 12 }}>
+                No INSERT statements detected. Ask Gemini to return SQL INSERT statements.
+              </span>
+            )}
+            {insertStatus.message && (
+              <span
+                className="muted"
+                style={{ fontSize: 12, color: insertStatus.state === "error" ? "var(--danger, #f87171)" : "var(--muted)" }}
+              >
+                {insertStatus.message}
+              </span>
+            )}
             <div
               className="markdown"
               style={{

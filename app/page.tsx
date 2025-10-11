@@ -60,7 +60,7 @@ export default function Page() {
     };
   }, [user]);
 
-  const limitReached = attemptsToday != null && attemptsToday >= DAILY_LIMIT;
+  const limitReached = !isAdmin && attemptsToday != null && attemptsToday >= DAILY_LIMIT;
 
 
   useEffect(() => {

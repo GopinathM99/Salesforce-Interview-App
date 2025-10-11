@@ -76,7 +76,8 @@ begin
 
   sanitized := regexp_replace(sanitized, ';\s*$', '', 1, 0, 'g');
 
-  if sanitized !~* '^insert\s+into\s+' then
+  -- Allow CTE-based statements by accepting any query that eventually runs INSERT INTO
+  if sanitized !~* 'insert\s+into\s+' then
     raise exception 'Only INSERT statements are allowed.';
   end if;
 

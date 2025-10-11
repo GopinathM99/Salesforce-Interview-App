@@ -150,7 +150,7 @@ export default function AddQuestionsPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
 
-  const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
+  const limitReached = !isAdmin && (attemptsToday ?? 0) >= DAILY_LIMIT;
   const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
 
   const sqlStatementsByMessage = useMemo(() => {
@@ -320,6 +320,7 @@ export default function AddQuestionsPage() {
     void loadTopics();
   }, []);
 
+
   const toggleTopic = (topic: string) => {
     setSelectedTopics((previous) =>
       previous.includes(topic)
@@ -392,7 +393,8 @@ export default function AddQuestionsPage() {
       return;
     }
 
-    if ((latestCount ?? 0) >= DAILY_LIMIT) {
+    // Skip daily limit check for admin users
+    if (!isAdmin && (latestCount ?? 0) >= DAILY_LIMIT) {
       setAttemptsToday(latestCount ?? 0);
       setError(
         "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
@@ -637,9 +639,11 @@ export default function AddQuestionsPage() {
         <p className="muted" style={{ marginTop: 8 }}>{hint}</p>
         {user && (
           <p className="muted" style={{ marginTop: 4 }}>
-            {attemptsLoading
+            {attemptsLoading || isAdmin === null
               ? "Checking remaining attempts…"
-              : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
+              : isAdmin
+                ? "Admin user - unlimited Gemini requests available."
+                : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
           </p>
         )}
         {!user && (

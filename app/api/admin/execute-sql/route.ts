@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     for (const statement of sanitizedStatements) {
-      if (!/^insert\s+into\s+/i.test(statement)) {
+      if (!/insert\s+into/i.test(statement)) {
         return NextResponse.json(
           { error: "Only INSERT statements are supported." },
           { status: 400 }
@@ -104,6 +104,18 @@ export async function POST(request: NextRequest) {
       const { error } = await supabaseAdminClient.rpc("execute_insert_sql", { sql: statement });
       if (error) {
         console.error("Failed to execute INSERT statement", { statement, error });
+        if (
+          error.message?.includes("Only INSERT statements are allowed") &&
+          /^with\s+/i.test(statement)
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Supabase function execute_insert_sql currently rejects WITH queries. Reapply the updated function from supabase/schema.sql so CTE-based inserts are permitted."
+            },
+            { status: 400 }
+          );
+        }
         return NextResponse.json(
           { error: error.message || "Failed to execute INSERT statement." },
           { status: 400 }

@@ -68,6 +68,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if user is admin
+    const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+    if (adminError) {
+      console.error("Failed to check admin status", adminError);
+      return NextResponse.json(
+        { error: "Could not verify admin status." },
+        { status: 500 }
+      );
+    }
+
     const body = (await request.json()) as { messages?: ClientMessage[] };
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       return NextResponse.json(
@@ -76,29 +86,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { start, end } = getTodayRange();
-    const { count, error: usageError } = await supabase
-      .from("gemini_usage_logs")
-      .select("id", { count: "exact", head: true })
-      .gte("used_at", start)
-      .lt("used_at", end);
+    // Skip daily limit check for admin users
+    if (!isAdmin) {
+      const { start, end } = getTodayRange();
+      const { count, error: usageError } = await supabase
+        .from("gemini_usage_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("used_at", start)
+        .lt("used_at", end);
 
-    if (usageError) {
-      console.error("Failed to count Gemini usage", usageError);
-      return NextResponse.json(
-        { error: "Could not verify remaining attempts." },
-        { status: 500 }
-      );
-    }
+      if (usageError) {
+        console.error("Failed to count Gemini usage", usageError);
+        return NextResponse.json(
+          { error: "Could not verify remaining attempts." },
+          { status: 500 }
+        );
+      }
 
-    if ((count ?? 0) >= DAILY_LIMIT) {
-      return NextResponse.json(
-        {
-          error:
-            "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
-        },
-        { status: 429 }
-      );
+      if ((count ?? 0) >= DAILY_LIMIT) {
+        return NextResponse.json(
+          {
+            error:
+              "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
+          },
+          { status: 429 }
+        );
+      }
     }
 
     const { error: logError } = await supabase
