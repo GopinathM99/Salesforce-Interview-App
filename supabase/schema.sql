@@ -57,6 +57,36 @@ $$;
 grant execute on function public.current_user_email() to anon, authenticated;
 grant execute on function public.is_admin() to anon, authenticated;
 
+drop function if exists public.execute_insert_sql(text);
+
+create or replace function public.execute_insert_sql(sql text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  sanitized text;
+begin
+  sanitized := trim(sql);
+
+  if sanitized is null or sanitized = '' then
+    return;
+  end if;
+
+  sanitized := regexp_replace(sanitized, ';\s*$', '', 1, 0, 'g');
+
+  if sanitized !~* '^insert\s+into\s+' then
+    raise exception 'Only INSERT statements are allowed.';
+  end if;
+
+  execute sanitized;
+end;
+$$;
+
+revoke all on function public.execute_insert_sql(text) from public;
+grant execute on function public.execute_insert_sql(text) to service_role;
+
 alter table public.admin_users enable row level security;
 
 drop policy if exists "Admins can manage admin users" on public.admin_users;

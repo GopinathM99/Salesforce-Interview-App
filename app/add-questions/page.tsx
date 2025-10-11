@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,6 +12,11 @@ type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+};
+
+type SqlExecutionStatus = {
+  state: "idle" | "running" | "success" | "error";
+  message?: string;
 };
 
 const createId = () => crypto.randomUUID();
@@ -103,6 +108,29 @@ const getTodayRange = () => {
   return { start: start.toISOString(), end: end.toISOString() };
 };
 
+const extractInsertStatements = (content: string): string[] => {
+  const statements: string[] = [];
+  const blockRegex = /```(?:sql)?\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockRegex.exec(content)) !== null) {
+    const block = match[1];
+    const splits = block
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    splits.forEach((statement) => {
+      const normalized = statement.replace(/;+$/g, "").trim();
+      if (/^insert\s+into\s+/i.test(normalized)) {
+        statements.push(statement.endsWith(";") ? statement : `${statement};`);
+      }
+    });
+  }
+
+  return statements;
+};
+
 export default function AddQuestionsPage() {
   const { user, session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
@@ -118,9 +146,85 @@ export default function AddQuestionsPage() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
+  const [sqlStatuses, setSqlStatuses] = useState<Record<string, SqlExecutionStatus>>({});
 
   const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
   const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
+
+  const sqlStatementsByMessage = useMemo(() => {
+    const map = new Map<string, string[]>();
+    messages.forEach((message) => {
+      if (message.role !== "assistant") {
+        return;
+      }
+      const statements = extractInsertStatements(message.content);
+      if (statements.length > 0) {
+        map.set(message.id, statements);
+      }
+    });
+    return map;
+  }, [messages]);
+
+  const handleExecuteSql = useCallback(
+    async (messageId: string) => {
+      const statements = sqlStatementsByMessage.get(messageId);
+      if (!statements || statements.length === 0) {
+        return;
+      }
+
+      if (!session?.access_token) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: { state: "error", message: "Missing session. Sign in again to insert records." }
+        }));
+        return;
+      }
+
+      setSqlStatuses((previous) => ({
+        ...previous,
+        [messageId]: { state: "running" }
+      }));
+
+      try {
+        const response = await fetch("/api/admin/execute-sql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            statements: statements.map((statement) => statement.replace(/;+$/g, "").trim())
+          })
+        });
+
+        const data = (await response.json()) as { error?: string; success?: boolean; executed?: number };
+
+        if (!response.ok || data?.success !== true) {
+          const message = data?.error || "Failed to insert statements.";
+          setSqlStatuses((previous) => ({
+            ...previous,
+            [messageId]: { state: "error", message }
+          }));
+          return;
+        }
+
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "success",
+            message: data.executed ? `Inserted ${data.executed} statement${data.executed === 1 ? "" : "s"}.` : "Insert complete."
+          }
+        }));
+      } catch (insertError) {
+        const message = insertError instanceof Error ? insertError.message : "Unexpected error inserting records.";
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: { state: "error", message }
+        }));
+      }
+    },
+    [session?.access_token, sqlStatementsByMessage]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -691,33 +795,83 @@ export default function AddQuestionsPage() {
               background: "#0d172b"
             }}
           >
-            {messages.map((message) => (
-              <div key={message.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span
-                  className="pill"
-                  style={{
-                    alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-                    background: message.role === "user" ? "#1b2b46" : "#0f3323"
-                  }}
-                >
-                  {message.role === "user" ? "You" : "Gemini"}
-                </span>
-                <div
-                  className="markdown"
-                  style={{
-                    alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-                    background: message.role === "user" ? "#16213b" : "#122a1d",
-                    border: "1px solid #233453",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    maxWidth: "100%",
-                    wordBreak: "break-word"
-                  }}
-                >
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+            {messages.map((message) => {
+              const statements = sqlStatementsByMessage.get(message.id) ?? [];
+              const status = sqlStatuses[message.id];
+              const isAssistant = message.role === "assistant";
+              const hasSql = isAssistant && statements.length > 0;
+              const running = status?.state === "running";
+              const succeeded = status?.state === "success";
+
+              return (
+                <div key={message.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span
+                    className="pill"
+                    style={{
+                      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                      background: message.role === "user" ? "#1b2b46" : "#0f3323"
+                    }}
+                  >
+                    {message.role === "user" ? "You" : "Gemini"}
+                  </span>
+                  <div
+                    className="markdown"
+                    style={{
+                      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                      background: message.role === "user" ? "#16213b" : "#122a1d",
+                      border: "1px solid #233453",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      maxWidth: "100%",
+                      wordBreak: "break-word"
+                    }}
+                  >
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                  {hasSql && (
+                    <div
+                      style={{
+                        alignSelf: "flex-start",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        background: "#0f1c32",
+                        border: "1px solid #233453",
+                        borderRadius: 12,
+                        padding: "10px 14px",
+                        maxWidth: "100%"
+                      }}
+                    >
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Gemini suggested {statements.length} INSERT statement
+                        {statements.length === 1 ? "" : "s"}. Review them before inserting into Supabase.
+                      </span>
+                      <button
+                        type="button"
+                        className="btn success"
+                        onClick={() => handleExecuteSql(message.id)}
+                        disabled={running || succeeded}
+                        style={{ alignSelf: "flex-start" }}
+                      >
+                        {running
+                          ? "Inserting…"
+                          : succeeded
+                            ? "Inserted"
+                            : "Insert into Supabase"}
+                      </button>
+                      {status?.message && (
+                        <span
+                          className="muted"
+                          style={{ fontSize: 12, color: status.state === "error" ? "#f69988" : "var(--muted)" }}
+                        >
+                          {status.message}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {awaitingStream && (
               <div key="loading" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span className="pill" style={{ alignSelf: "flex-start", background: "#0f3323" }}>
