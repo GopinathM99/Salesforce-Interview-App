@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useAdminAccess } from '@/lib/useAdminAccess';
 
@@ -194,7 +195,10 @@ export default function EmailManagementPage() {
   return (
     <div className="grid">
       <div className="card">
-        <h1>Email Management</h1>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <h1>Email Management</h1>
+          <Link className="btn" href="/admin">Back to Admin Page</Link>
+        </div>
         
         {message && (
           <div style={{ 

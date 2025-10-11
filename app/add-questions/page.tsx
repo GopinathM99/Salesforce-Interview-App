@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,6 +12,11 @@ type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+};
+
+type SqlExecutionStatus = {
+  state: "idle" | "running" | "success" | "error";
+  message?: string;
 };
 
 const createId = () => crypto.randomUUID();
@@ -103,6 +108,29 @@ const getTodayRange = () => {
   return { start: start.toISOString(), end: end.toISOString() };
 };
 
+const extractInsertStatements = (content: string): string[] => {
+  const statements: string[] = [];
+  const blockRegex = /```(?:sql)?\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockRegex.exec(content)) !== null) {
+    const block = match[1];
+    const splits = block
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    splits.forEach((statement) => {
+      const normalized = statement.replace(/;+$/g, "").trim();
+      if (/^insert\s+into\s+/i.test(normalized)) {
+        statements.push(statement.endsWith(";") ? statement : `${statement};`);
+      }
+    });
+  }
+
+  return statements;
+};
+
 export default function AddQuestionsPage() {
   const { user, session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
@@ -118,9 +146,109 @@ export default function AddQuestionsPage() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
+  const [sqlStatuses, setSqlStatuses] = useState<Record<string, SqlExecutionStatus>>({});
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
 
-  const limitReached = (attemptsToday ?? 0) >= DAILY_LIMIT;
+  const limitReached = !isAdmin && (attemptsToday ?? 0) >= DAILY_LIMIT;
   const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
+
+  const sqlStatementsByMessage = useMemo(() => {
+    const map = new Map<string, string[]>();
+    messages.forEach((message) => {
+      if (message.role !== "assistant") {
+        return;
+      }
+      const statements = extractInsertStatements(message.content);
+      if (statements.length > 0) {
+        map.set(message.id, statements);
+      }
+    });
+    return map;
+  }, [messages]);
+
+  const handleExecuteSql = useCallback(
+    async (messageId: string) => {
+      const statements = sqlStatementsByMessage.get(messageId);
+      if (!statements || statements.length === 0) {
+        return;
+      }
+
+      if (isAdmin === false) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "error",
+            message: "Only admin users can insert records. Contact an administrator to proceed."
+          }
+        }));
+        return;
+      }
+
+      if (isAdmin === null) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "error",
+            message: "Verifying your admin access. Please try again in a moment."
+          }
+        }));
+        return;
+      }
+
+      if (!session?.access_token) {
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: { state: "error", message: "Missing session. Sign in again to insert records." }
+        }));
+        return;
+      }
+
+      setSqlStatuses((previous) => ({
+        ...previous,
+        [messageId]: { state: "running" }
+      }));
+
+      try {
+        const response = await fetch("/api/admin/execute-sql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            statements: statements.map((statement) => statement.replace(/;+$/g, "").trim())
+          })
+        });
+
+        const data = (await response.json()) as { error?: string; success?: boolean; executed?: number };
+
+        if (!response.ok || data?.success !== true) {
+          const message = data?.error || "Failed to insert statements.";
+          setSqlStatuses((previous) => ({
+            ...previous,
+            [messageId]: { state: "error", message }
+          }));
+          return;
+        }
+
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: {
+            state: "success",
+            message: data.executed ? `Inserted ${data.executed} statement${data.executed === 1 ? "" : "s"}.` : "Insert complete."
+          }
+        }));
+      } catch (insertError) {
+        const message = insertError instanceof Error ? insertError.message : "Unexpected error inserting records.";
+        setSqlStatuses((previous) => ({
+          ...previous,
+          [messageId]: { state: "error", message }
+        }));
+      }
+    },
+    [isAdmin, session?.access_token, sqlStatementsByMessage]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -150,6 +278,30 @@ export default function AddQuestionsPage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      setAdminCheckError(null);
+      return;
+    }
+
+    const verifyAdmin = async () => {
+      setAdminCheckError(null);
+      setIsAdmin(null);
+      const { data, error } = await supabase.rpc("is_admin");
+      if (error) {
+        console.error("Failed to confirm admin access", error);
+        setAdminCheckError("Could not confirm admin access. Only admins can insert SQL from Gemini.");
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(Boolean(data));
+    };
+
+    void verifyAdmin();
+  }, [user]);
+
+  useEffect(() => {
     const loadTopics = async () => {
       setTopicsLoading(true);
       const { data, error } = await supabase.rpc("list_topics");
@@ -167,6 +319,7 @@ export default function AddQuestionsPage() {
 
     void loadTopics();
   }, []);
+
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((previous) =>
@@ -240,7 +393,8 @@ export default function AddQuestionsPage() {
       return;
     }
 
-    if ((latestCount ?? 0) >= DAILY_LIMIT) {
+    // Skip daily limit check for admin users
+    if (!isAdmin && (latestCount ?? 0) >= DAILY_LIMIT) {
       setAttemptsToday(latestCount ?? 0);
       setError(
         "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
@@ -485,9 +639,11 @@ export default function AddQuestionsPage() {
         <p className="muted" style={{ marginTop: 8 }}>{hint}</p>
         {user && (
           <p className="muted" style={{ marginTop: 4 }}>
-            {attemptsLoading
+            {attemptsLoading || isAdmin === null
               ? "Checking remaining attempts…"
-              : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
+              : isAdmin
+                ? "Admin user - unlimited Gemini requests available."
+                : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
           </p>
         )}
         {!user && (
@@ -691,33 +847,125 @@ export default function AddQuestionsPage() {
               background: "#0d172b"
             }}
           >
-            {messages.map((message) => (
-              <div key={message.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span
-                  className="pill"
-                  style={{
-                    alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-                    background: message.role === "user" ? "#1b2b46" : "#0f3323"
-                  }}
-                >
-                  {message.role === "user" ? "You" : "Gemini"}
-                </span>
-                <div
-                  className="markdown"
-                  style={{
-                    alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-                    background: message.role === "user" ? "#16213b" : "#122a1d",
-                    border: "1px solid #233453",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    maxWidth: "100%",
-                    wordBreak: "break-word"
-                  }}
-                >
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+            {messages.map((message) => {
+              const statements = sqlStatementsByMessage.get(message.id) ?? [];
+              const status = sqlStatuses[message.id];
+              const isAssistant = message.role === "assistant";
+              const hasSql = isAssistant && statements.length > 0;
+              const running = status?.state === "running";
+              const succeeded = status?.state === "success";
+
+              return (
+                <div key={message.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span
+                    className="pill"
+                    style={{
+                      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                      background: message.role === "user" ? "#1b2b46" : "#0f3323"
+                    }}
+                  >
+                    {message.role === "user" ? "You" : "Gemini"}
+                  </span>
+                  <div
+                    className="markdown"
+                    style={{
+                      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                      background: message.role === "user" ? "#16213b" : "#122a1d",
+                      border: "1px solid #233453",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      maxWidth: "100%",
+                      wordBreak: "break-word"
+                    }}
+                  >
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                  {hasSql && (
+                    <div
+                      style={{
+                        alignSelf: "flex-start",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        background: "#0f1c32",
+                        border: "1px solid #233453",
+                        borderRadius: 12,
+                        padding: "10px 14px",
+                        maxWidth: "100%"
+                      }}
+                    >
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Gemini suggested {statements.length} INSERT statement
+                        {statements.length === 1 ? "" : "s"}. Review them below, then click the button to run them in Supabase.
+                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          background: "#0b1322",
+                          border: "1px solid #1f2f4a",
+                          borderRadius: 8,
+                          padding: 10,
+                          maxWidth: "100%"
+                        }}
+                      >
+                        {statements.map((statement, index) => (
+                          <code
+                            key={`${message.id}-sql-${index}`}
+                            style={{
+                              display: "block",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              fontSize: 12,
+                              color: "#d6e4ff"
+                            }}
+                          >
+                            {statement}
+                          </code>
+                        ))}
+                      </div>
+                      {adminCheckError ? (
+                        <span className="muted" style={{ fontSize: 12, color: "#f69988" }}>
+                          {adminCheckError}
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="btn success"
+                            onClick={() => handleExecuteSql(message.id)}
+                            disabled={running || succeeded || isAdmin !== true}
+                            style={{ alignSelf: "flex-start" }}
+                          >
+                            {running
+                              ? "Inserting…"
+                              : succeeded
+                                ? "Inserted"
+                                : isAdmin === null
+                                  ? "Checking admin access…"
+                                  : "Insert into Supabase"}
+                          </button>
+                          {isAdmin === false && (
+                            <span className="muted" style={{ fontSize: 12, color: "#f69988" }}>
+                              Only admin users can run these statements. Ask an administrator to sign in to execute them.
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {status?.message && (
+                        <span
+                          className="muted"
+                          style={{ fontSize: 12, color: status.state === "error" ? "#f69988" : "var(--muted)" }}
+                        >
+                          {status.message}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {awaitingStream && (
               <div key="loading" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span className="pill" style={{ alignSelf: "flex-start", background: "#0f3323" }}>
