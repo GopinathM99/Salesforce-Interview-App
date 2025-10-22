@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 import { WelcomeMessage } from "@/components/WelcomeMessage";
+import { CodingSection } from "@/components/CodingSection";
 
 export default function Page() {
   const { user } = useAuth();
@@ -227,6 +228,7 @@ export default function Page() {
             <p className="muted" style={{ marginTop: 8 }}>Checking remaining attempts…</p>
           )}
         </div>
+        <CodingSection />
         {user && (
           <div className="card">
             <h3>Subscribe to Daily Challenges</h3>

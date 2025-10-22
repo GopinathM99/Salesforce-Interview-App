@@ -91,6 +91,19 @@ export interface UnsubscribeToken {
   expires_at: string;
 }
 
+export interface CodingQuestion {
+  id: string;
+  title: string;
+  description: string;
+  problem_statement: string;
+  solution_code: string;
+  explanation: string | null;
+  difficulty: Difficulty;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 const toChoices = (value: unknown): string[] | null => {
   if (!Array.isArray(value)) return null;
   return value.map((v) => String(v));
