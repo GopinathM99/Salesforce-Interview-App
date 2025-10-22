@@ -85,3 +85,34 @@ insert into public.multiple_choice_questions (question_id, choices, correct_choi
 select iq.id, mr.choices, mr.correct_choice_index, mr.explanation
 from inserted_questions iq
 join mcq_rows mr on mr.question_text = iq.question_text;
+
+-- Seed coding questions
+insert into public.coding_questions (title, description, problem_statement, solution_code, explanation, difficulty, tags)
+values
+  (
+    'Two Sum Problem',
+    'Find two numbers in an array that add up to a target value.',
+    'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\nExample:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].',
+    'function twoSum(nums, target) {\n  const map = new Map();\n  \n  for (let i = 0; i < nums.length; i++) {\n    const complement = target - nums[i];\n    \n    if (map.has(complement)) {\n      return [map.get(complement), i];\n    }\n    \n    map.set(nums[i], i);\n  }\n  \n  return [];\n}',
+    'This solution uses a hash map to store each number and its index as we iterate through the array. For each number, we calculate its complement (target - current number) and check if it exists in our map. If it does, we found our pair. Time complexity: O(n), Space complexity: O(n).',
+    'easy',
+    ARRAY['arrays', 'hash-table', 'two-pointers']
+  ),
+  (
+    'Valid Parentheses',
+    'Check if a string containing only parentheses is valid.',
+    'Given a string s containing just the characters ''('', '')'', ''{'', ''}'', ''['' and '']'', determine if the input string is valid.\n\nAn input string is valid if:\n1. Open brackets must be closed by the same type of brackets.\n2. Open brackets must be closed in the correct order.\n3. Every close bracket has a corresponding open bracket of the same type.\n\nExample:\nInput: s = "()[]{}"\nOutput: true',
+    'function isValid(s) {\n  const stack = [];\n  const map = {\n    ''('': '')'',\n    ''['': '']'',\n    ''{'': ''}''\n  };\n  \n  for (let char of s) {\n    if (char in map) {\n      stack.push(char);\n    } else {\n      const last = stack.pop();\n      if (map[last] !== char) {\n        return false;\n      }\n    }\n  }\n  \n  return stack.length === 0;\n}',
+    'This solution uses a stack data structure. We push opening brackets onto the stack and pop them when we encounter closing brackets. If the popped bracket doesn''t match the current closing bracket, the string is invalid. Time complexity: O(n), Space complexity: O(n).',
+    'easy',
+    ARRAY['string', 'stack']
+  ),
+  (
+    'Binary Tree Inorder Traversal',
+    'Traverse a binary tree in inorder (left, root, right) sequence.',
+    'Given the root of a binary tree, return the inorder traversal of its nodes'' values.\n\nIn inorder traversal:\n1. Traverse the left subtree\n2. Visit the root\n3. Traverse the right subtree\n\nExample:\nInput: root = [1,null,2,3]\nOutput: [1,3,2]',
+    'function inorderTraversal(root) {\n  const result = [];\n  \n  function traverse(node) {\n    if (!node) return;\n    \n    traverse(node.left);\n    result.push(node.val);\n    traverse(node.right);\n  }\n  \n  traverse(root);\n  return result;\n}\n\n// Iterative version\nfunction inorderTraversalIterative(root) {\n  const result = [];\n  const stack = [];\n  let current = root;\n  \n  while (current || stack.length > 0) {\n    while (current) {\n      stack.push(current);\n      current = current.left;\n    }\n    \n    current = stack.pop();\n    result.push(current.val);\n    current = current.right;\n  }\n  \n  return result;\n}',
+    'This solution demonstrates both recursive and iterative approaches to inorder traversal. The recursive version is simpler but uses O(h) stack space where h is the height of the tree. The iterative version uses an explicit stack. Time complexity: O(n), Space complexity: O(h) for recursive, O(n) for iterative in worst case.',
+    'medium',
+    ARRAY['tree', 'stack', 'recursion']
+  );
