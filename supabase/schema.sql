@@ -493,3 +493,46 @@ create policy "Service role can update unsubscribe tokens"
   to service_role
   using (true)
   with check (true);
+
+-- Coding Q&A table for programming questions
+create table if not exists public.coding_questions (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text not null,
+  problem_statement text not null,
+  solution_code text not null,
+  explanation text,
+  difficulty public.difficulty_level not null default 'medium',
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Drop the removed columns if they exist (for existing databases)
+alter table public.coding_questions drop column if exists language;
+alter table public.coding_questions drop column if exists test_cases;
+alter table public.coding_questions drop column if exists hints;
+alter table public.coding_questions drop column if exists related_topics;
+
+-- Indexes for coding questions
+create index if not exists idx_coding_questions_difficulty on public.coding_questions (difficulty);
+create index if not exists idx_coding_questions_tags on public.coding_questions using gin (tags);
+create index if not exists idx_coding_questions_created_at on public.coding_questions (created_at desc);
+
+-- Enable RLS for coding questions
+alter table public.coding_questions enable row level security;
+
+-- Policy: Anyone can read coding questions
+drop policy if exists "Coding questions are readable by anyone" on public.coding_questions;
+create policy "Coding questions are readable by anyone"
+  on public.coding_questions for select
+  to anon, authenticated
+  using (true);
+
+-- Policy: Only admins can modify coding questions
+drop policy if exists "Only admins can modify coding questions" on public.coding_questions;
+create policy "Only admins can modify coding questions"
+  on public.coding_questions for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
