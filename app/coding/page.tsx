@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CodingQuestion } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
 
 export default function CodingPage() {
   const [codingQuestions, setCodingQuestions] = useState<CodingQuestion[]>([]);
@@ -204,7 +205,12 @@ export default function CodingPage() {
               {currentQuestion.explanation && (
                 <div style={{ marginTop: 16 }}>
                   <h4>Explanation</h4>
-                  <p style={{ whiteSpace: "pre-wrap" }}>{currentQuestion.explanation}</p>
+                  <div style={{ 
+                    lineHeight: 1.6,
+                    fontSize: 15
+                  }}>
+                    <ReactMarkdown>{currentQuestion.explanation?.replace(/\\n/g, '\n')}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
