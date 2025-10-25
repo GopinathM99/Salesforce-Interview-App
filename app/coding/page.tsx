@@ -6,6 +6,89 @@ import { supabase } from "@/lib/supabaseClient";
 import { CodingQuestion } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
 
+const parseSolutionFiles = (solutionCode: string) => {
+  if (!solutionCode) return [];
+  
+  // Pattern to match file names in various formats:
+  // - With separators: -- lookup.html -- or === lookup.html ===
+  // - Pure filename: lookup.html
+  // - With comment: // lookup.html or /* lookup.html */
+  // - Trigger declarations: trigger OpportunityContactRoleTrigger on Opportunity (after update)
+  // - Batch classes: public class UpdateAccountRatingBatch implements Database.Batchable<sObject>
+  const filePattern = /^[\s]*[=\-]{2,}[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*[=\-]{2,}[\s]*$|^[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*$|^[\s]*trigger\s+([A-Za-z]\w+)\s+on\s+|^[\s]*(?:public\s+)?class\s+([A-Za-z]\w+Batch)[\s]+(?:(?:implements|extends)\s+)?/im;
+  const lines = solutionCode.split('\n');
+  const files: Array<{ name: string; code: string; extension: string }> = [];
+  let currentFile: { name: string; code: string; extension: string } | null = null;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(filePattern);
+    
+    if (match) {
+      // Save previous file if exists
+      if (currentFile) {
+        files.push(currentFile);
+      }
+      // Start new file
+      let fileName: string;
+      let extension: string;
+      let includeLineInCode: boolean;
+      
+      if (match[6]) {
+        // Batch class declaration: match[6] is the batch class name
+        fileName = match[6];
+        extension = 'batch';
+        includeLineInCode = true; // Include the declaration line
+      } else if (match[5]) {
+        // Trigger declaration: match[5] is the trigger name
+        fileName = match[5];
+        extension = 'trigger';
+        includeLineInCode = true; // Include the declaration line
+      } else {
+        // Regular file: match[1] is for format with separators, match[3] is for standalone filename
+        fileName = match[1] || match[3];
+        extension = fileName.split('.').pop() || '';
+        includeLineInCode = false; // Don't include separator lines
+      }
+      
+      currentFile = { name: fileName, code: includeLineInCode ? line : '', extension };
+    } else if (currentFile) {
+      // Add line to current file
+      currentFile.code += (currentFile.code ? '\n' : '') + line;
+    }
+  }
+  
+  // Add last file
+  if (currentFile) {
+    files.push(currentFile);
+  }
+  
+  // If no files found, treat entire solution as one block
+  if (files.length === 0) {
+    return [{ name: 'solution', code: solutionCode, extension: '' }];
+  }
+  
+  return files;
+};
+
+const getFileColor = (extension: string) => {
+  const colors: Record<string, { bg: string; border: string }> = {
+    'html': { bg: '#1e293b', border: '#f97316' }, // orange for HTML
+    'js': { bg: '#1e293b', border: '#fbbf24' }, // yellow for JS
+    'cls': { bg: '#1e293b', border: '#10b981' }, // green for Apex classes
+    'apex': { bg: '#1e293b', border: '#10b981' }, // green for Apex
+    'trigger': { bg: '#1e293b', border: '#22c55e' }, // bright green for Triggers
+    'batch': { bg: '#1e293b', border: '#16a34a' }, // emerald green for Batch classes
+    'xml': { bg: '#1e293b', border: '#8b5cf6' }, // purple for XML
+    'cmp': { bg: '#1e293b', border: '#06b6d4' }, // cyan for Lightning components
+    'css': { bg: '#1e293b', border: '#ec4899' }, // pink for CSS
+    'json': { bg: '#1e293b', border: '#14b8a6' }, // teal for JSON
+    'ts': { bg: '#1e293b', border: '#3b82f6' }, // blue for TypeScript
+  };
+  
+  return colors[extension.toLowerCase()] || { bg: '#1e293b', border: '#64748b' };
+};
+
 export default function CodingPage() {
   const [codingQuestions, setCodingQuestions] = useState<CodingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,19 +271,45 @@ export default function CodingPage() {
           {showSolution && (
             <div style={{ marginBottom: 24 }}>
               <h3>Solution</h3>
-              <div style={{ 
-                backgroundColor: "#1e293b", 
-                color: "#f1f5f9",
-                padding: 16, 
-                borderRadius: 8, 
-                border: "1px solid #334155",
-                fontFamily: "monospace",
-                fontSize: 14,
-                overflow: "auto",
-                whiteSpace: "pre-wrap"
-              }}>
-                {currentQuestion.solution_code?.replace(/\\n/g, '\n')}
-              </div>
+              {(() => {
+                const solutionText = currentQuestion.solution_code?.replace(/\\n/g, '\n') || '';
+                const files = parseSolutionFiles(solutionText);
+                
+                return files.map((file, index) => {
+                  const colors = getFileColor(file.extension);
+                  return (
+                    <div key={index} style={{ marginBottom: index < files.length - 1 ? 16 : 0 }}>
+                      {file.name !== 'solution' && (
+                        <div style={{ 
+                          fontSize: 16, 
+                          fontWeight: 600, 
+                          color: colors.border,
+                          marginBottom: 8,
+                          padding: '8px 12px',
+                          backgroundColor: colors.bg,
+                          borderLeft: `4px solid ${colors.border}`,
+                          borderRadius: 4
+                        }}>
+                          {file.name}
+                        </div>
+                      )}
+                      <div style={{ 
+                        backgroundColor: colors.bg, 
+                        color: "#f1f5f9",
+                        padding: 16, 
+                        borderRadius: 8, 
+                        border: `1px solid ${colors.border}`,
+                        fontFamily: "monospace",
+                        fontSize: 14,
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap"
+                      }}>
+                        {file.code}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
               
               {currentQuestion.explanation && (
                 <div style={{ marginTop: 16 }}>
