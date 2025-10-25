@@ -634,7 +634,7 @@ export default function AddQuestionsPage() {
       <div className="card" style={{ maxWidth: 900, margin: "0 auto", width: "100%" }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <h2 className="title" style={{ marginBottom: 0 }}>AI Question Builder</h2>
-          <Link className="btn" href="/">Back to Home</Link>
+          <Link className="btn back-btn" href="/">Back to Home</Link>
         </div>
         <p className="muted" style={{ marginTop: 8 }}>{hint}</p>
         {user && (
