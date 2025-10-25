@@ -169,9 +169,9 @@ function UnsubscribeContent() {
 
         <div style={{ textAlign: 'center', marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
           <p style={{ color: '#666', fontSize: '14px' }}>
-            <a href="/" style={{ color: '#007bff', textDecoration: 'none' }}>
+            <Link href="/" className="btn back-btn" style={{ marginRight: '8px' }}>
               ← Back to Home
-            </a>
+            </Link>
             {' | '}
             <a href="/subscribe" style={{ color: '#007bff', textDecoration: 'none' }}>
               Manage Subscription

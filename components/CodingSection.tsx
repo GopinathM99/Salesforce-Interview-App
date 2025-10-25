@@ -8,7 +8,7 @@ export function CodingSection() {
       <h3>Coding Challenges</h3>
       <p>Practice coding problems and improve your programming skills.</p>
       <Link
-        className="btn primary"
+        className="btn primary home-btn"
         href="/coding"
         style={{ marginTop: 12, display: "inline-block" }}
       >

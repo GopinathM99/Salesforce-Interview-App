@@ -136,7 +136,7 @@ export default function Page() {
             <h3>Flash Cards</h3>
             <p>Reveal answers, swipe through, and focus on understanding.</p>
             <Link
-              className="btn primary"
+              className="btn primary home-btn"
               href="/flashcards"
               style={{ marginTop: 12, display: "inline-block" }}
             >
@@ -147,7 +147,7 @@ export default function Page() {
             <h3>Multiple Choice</h3>
             <p>Pick the right option and get instant feedback.</p>
             <Link
-              className="btn primary"
+              className="btn primary home-btn"
               href="/mcq"
               style={{ marginTop: 12, display: "inline-block" }}
             >
@@ -190,7 +190,7 @@ export default function Page() {
                 </>
               ) : (
                 <Link
-                  className="btn primary"
+                  className="btn primary home-btn"
                   href="/add-questions"
                   style={{ marginTop: 12, display: "inline-block" }}
                 >
@@ -237,7 +237,7 @@ export default function Page() {
               Choose your topics, difficulty levels, and question types to create the perfect study plan.
             </p>
             <Link
-              className="btn primary"
+              className="btn primary home-btn"
               href="/subscribe"
               style={{ marginTop: 12, display: "inline-block" }}
             >
@@ -250,7 +250,7 @@ export default function Page() {
             <h3>Admin Panel</h3>
             <p>Manage your Salesforce question bank, categories, and AI quotas.</p>
             <Link
-              className="btn primary"
+              className="btn primary home-btn"
               href="/admin"
               style={{ marginTop: 12, display: "inline-block" }}
             >
