@@ -116,7 +116,7 @@ export default function FlashcardsPage() {
           style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
         >
           <h2 className="title" style={{ marginBottom: 0 }}>Flashcards</h2>
-          <Link className="btn" href="/">
+          <Link className="btn back-btn" href="/">
             Back to Home
           </Link>
         </div>
@@ -163,11 +163,25 @@ export default function FlashcardsPage() {
         {q ? (
           <div className="card" style={{ marginTop: 12 }}>
             {meta}
-            <h3 style={{ marginTop: 8 }}>{q.question_text}</h3>
+            <h3 style={{ 
+              marginTop: 8, 
+              fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+              fontSize: '22px',
+              lineHeight: '1.5',
+              fontWeight: 400,
+              color: '#f1f5f9'
+            }}>{q.question_text}</h3>
             {reveal ? (
               <div style={{ marginTop: 12 }}>
-                <strong>Answer:</strong>
-                <p style={{ whiteSpace: "pre-wrap" }}>{q.answer_text}</p>
+                <strong style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '16px' }}>Answer:</strong>
+                <p style={{ 
+                  whiteSpace: "pre-wrap",
+                  fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                  fontSize: '16px',
+                  lineHeight: '1.7',
+                  color: '#e2e8f0',
+                  marginTop: 8
+                }}>{q.answer_text}</p>
               </div>
             ) : (
               <p className="muted" style={{ marginTop: 12 }}>
@@ -175,10 +189,10 @@ export default function FlashcardsPage() {
               </p>
             )}
             <div className="row" style={{ marginTop: 12, gap: 8 }}>
-              <button className="btn" onClick={() => setReveal((r) => !r)}>
+              <button className="btn reveal-btn" onClick={() => setReveal((r) => !r)}>
                 {reveal ? "Hide Answer" : "Reveal Answer"}
               </button>
-              <button className="btn" onClick={() => void handleNext()} disabled={loading || savingAttempt}>
+              <button className="btn next-btn" onClick={() => void handleNext()} disabled={loading || savingAttempt}>
                 {savingAttempt ? "Saving…" : "Next Random"}
               </button>
             </div>

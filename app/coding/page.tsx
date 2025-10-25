@@ -73,20 +73,58 @@ const parseSolutionFiles = (solutionCode: string) => {
 
 const getFileColor = (extension: string) => {
   const colors: Record<string, { bg: string; border: string }> = {
-    'html': { bg: '#1e293b', border: '#f97316' }, // orange for HTML
-    'js': { bg: '#1e293b', border: '#fbbf24' }, // yellow for JS
-    'cls': { bg: '#1e293b', border: '#10b981' }, // green for Apex classes
-    'apex': { bg: '#1e293b', border: '#10b981' }, // green for Apex
-    'trigger': { bg: '#1e293b', border: '#22c55e' }, // bright green for Triggers
-    'batch': { bg: '#1e293b', border: '#16a34a' }, // emerald green for Batch classes
-    'xml': { bg: '#1e293b', border: '#8b5cf6' }, // purple for XML
-    'cmp': { bg: '#1e293b', border: '#06b6d4' }, // cyan for Lightning components
-    'css': { bg: '#1e293b', border: '#ec4899' }, // pink for CSS
-    'json': { bg: '#1e293b', border: '#14b8a6' }, // teal for JSON
-    'ts': { bg: '#1e293b', border: '#3b82f6' }, // blue for TypeScript
+    'html': { bg: '#1f2937', border: '#f97316' }, // orange for HTML
+    'js': { bg: '#1f2937', border: '#fbbf24' }, // yellow for JS
+    'cls': { bg: '#1f2937', border: '#10b981' }, // green for Apex classes
+    'apex': { bg: '#1f2937', border: '#10b981' }, // green for Apex
+    'trigger': { bg: '#1f2937', border: '#22c55e' }, // bright green for Triggers
+    'batch': { bg: '#1f2937', border: '#16a34a' }, // emerald green for Batch classes
+    'xml': { bg: '#1f2937', border: '#8b5cf6' }, // purple for XML
+    'cmp': { bg: '#1f2937', border: '#06b6d4' }, // cyan for Lightning components
+    'css': { bg: '#1f2937', border: '#ec4899' }, // pink for CSS
+    'json': { bg: '#1f2937', border: '#14b8a6' }, // teal for JSON
+    'ts': { bg: '#1f2937', border: '#3b82f6' }, // blue for TypeScript
   };
   
-  return colors[extension.toLowerCase()] || { bg: '#1e293b', border: '#64748b' };
+  return colors[extension.toLowerCase()] || { bg: '#1f2937', border: '#64748b' };
+};
+
+const renderCodeWithComments = (code: string) => {
+  const lines = code.split('\n');
+  
+  return lines.map((line, index) => {
+    // Check if line contains comments
+    const isFullComment = line.trim().startsWith('//') || line.trim().startsWith('/*');
+    const hasInlineComment = line.includes('//') && !line.trim().startsWith('//');
+    
+    if (isFullComment) {
+      // Full comment line - style differently with beautiful green/teal color
+      return (
+        <div key={index} style={{ color: '#6a9fb5', fontStyle: 'italic', opacity: 0.8, lineHeight: 1.6 }}>
+          {line}
+        </div>
+      );
+    } else if (hasInlineComment) {
+      // Inline comment - split the line
+      const commentIndex = line.indexOf('//');
+      const codePart = line.substring(0, commentIndex);
+      const commentPart = line.substring(commentIndex);
+      
+      return (
+        <div key={index} style={{ lineHeight: 1.6 }}>
+          <span style={{ color: '#e6edf3' }}>{codePart}</span>
+          <span style={{ color: '#6a9fb5', fontStyle: 'italic', opacity: 0.85 }}>{commentPart}</span>
+        </div>
+      );
+    } else {
+      // Regular code line with brighter color
+      return (
+        <div key={index} style={{ color: '#e6edf3', lineHeight: 1.6 }}>
+          {line}
+        </div>
+      );
+    }
+  });
 };
 
 export default function CodingPage() {
@@ -164,7 +202,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">Coding Questions</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -180,7 +218,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">Coding Questions</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -198,7 +236,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">{currentQuestion.title}</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -295,16 +333,17 @@ export default function CodingPage() {
                       )}
                       <div style={{ 
                         backgroundColor: colors.bg, 
-                        color: "#f1f5f9",
+                        color: "#e6edf3",
                         padding: 16, 
                         borderRadius: 8, 
                         border: `1px solid ${colors.border}`,
                         fontFamily: "monospace",
                         fontSize: 14,
                         overflow: "auto",
-                        whiteSpace: "pre-wrap"
+                        whiteSpace: "pre",
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                       }}>
-                        {file.code}
+                        {renderCodeWithComments(file.code)}
                       </div>
                     </div>
                   );
