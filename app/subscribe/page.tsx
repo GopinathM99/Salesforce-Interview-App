@@ -196,7 +196,7 @@ export default function SubscribePage() {
     <div className="grid">
       <div className="card" style={{ gridColumn: "1 / -1" }}>
         <div style={{ marginBottom: 16 }}>
-          <Link href="/" className="btn" style={{ marginBottom: 16, display: "inline-block" }}>
+          <Link href="/" className="btn back-btn" style={{ marginBottom: 16, display: "inline-block" }}>
             ← Back to Home
           </Link>
         </div>
