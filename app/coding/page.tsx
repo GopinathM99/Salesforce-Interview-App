@@ -5,6 +5,40 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CodingQuestion } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
+import {
+  CodeBlock,
+  CodeBlockHeader,
+  CodeBlockBody,
+  CodeBlockItem,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockSelect,
+  CodeBlockSelectTrigger,
+  CodeBlockSelectValue,
+  CodeBlockSelectContent,
+  CodeBlockSelectItem,
+} from "@/components/kibo-ui/code-block";
+import type { BundledLanguage } from "shiki";
+
+const getLanguageFromExtension = (extension: string): BundledLanguage => {
+  const languageMap: Record<string, BundledLanguage> = {
+    'html': 'html',
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'cls': 'java', // Apex classes use Java syntax highlighting
+    'apex': 'java',
+    'trigger': 'java', // Triggers use Java syntax highlighting
+    'batch': 'java', // Batch classes use Java syntax highlighting
+    'xml': 'xml',
+    'cmp': 'xml', // Lightning components are XML-based
+    'css': 'css',
+    'json': 'json',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+  };
+  
+  return languageMap[extension.toLowerCase()] || 'text';
+};
 
 const parseSolutionFiles = (solutionCode: string) => {
   if (!solutionCode) return [];
@@ -17,8 +51,8 @@ const parseSolutionFiles = (solutionCode: string) => {
   // - Batch classes: public class UpdateAccountRatingBatch implements Database.Batchable<sObject>
   const filePattern = /^[\s]*[=\-]{2,}[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*[=\-]{2,}[\s]*$|^[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*$|^[\s]*trigger\s+([A-Za-z]\w+)\s+on\s+|^[\s]*(?:public\s+)?class\s+([A-Za-z]\w+Batch)[\s]+(?:(?:implements|extends)\s+)?/im;
   const lines = solutionCode.split('\n');
-  const files: Array<{ name: string; code: string; extension: string }> = [];
-  let currentFile: { name: string; code: string; extension: string } | null = null;
+  const files: Array<{ language: BundledLanguage; filename: string; code: string }> = [];
+  let currentFile: { language: BundledLanguage; filename: string; code: string } | null = null;
   
   for (const line of lines) {
     const trimmed = line.trim();
@@ -51,7 +85,8 @@ const parseSolutionFiles = (solutionCode: string) => {
         includeLineInCode = false; // Don't include separator lines
       }
       
-      currentFile = { name: fileName, code: includeLineInCode ? line : '', extension };
+      const language = getLanguageFromExtension(extension);
+      currentFile = { language, filename: fileName, code: includeLineInCode ? line : '' };
     } else if (currentFile) {
       // Add line to current file
       currentFile.code += (currentFile.code ? '\n' : '') + line;
@@ -65,67 +100,12 @@ const parseSolutionFiles = (solutionCode: string) => {
   
   // If no files found, treat entire solution as one block
   if (files.length === 0) {
-    return [{ name: 'solution', code: solutionCode, extension: '' }];
+    return [{ language: 'text' as BundledLanguage, filename: 'solution', code: solutionCode }];
   }
   
   return files;
 };
 
-const getFileColor = (extension: string) => {
-  const colors: Record<string, { bg: string; border: string }> = {
-    'html': { bg: '#1f2937', border: '#f97316' }, // orange for HTML
-    'js': { bg: '#1f2937', border: '#fbbf24' }, // yellow for JS
-    'cls': { bg: '#1f2937', border: '#10b981' }, // green for Apex classes
-    'apex': { bg: '#1f2937', border: '#10b981' }, // green for Apex
-    'trigger': { bg: '#1f2937', border: '#22c55e' }, // bright green for Triggers
-    'batch': { bg: '#1f2937', border: '#16a34a' }, // emerald green for Batch classes
-    'xml': { bg: '#1f2937', border: '#8b5cf6' }, // purple for XML
-    'cmp': { bg: '#1f2937', border: '#06b6d4' }, // cyan for Lightning components
-    'css': { bg: '#1f2937', border: '#ec4899' }, // pink for CSS
-    'json': { bg: '#1f2937', border: '#14b8a6' }, // teal for JSON
-    'ts': { bg: '#1f2937', border: '#3b82f6' }, // blue for TypeScript
-  };
-  
-  return colors[extension.toLowerCase()] || { bg: '#1f2937', border: '#64748b' };
-};
-
-const renderCodeWithComments = (code: string) => {
-  const lines = code.split('\n');
-  
-  return lines.map((line, index) => {
-    // Check if line contains comments
-    const isFullComment = line.trim().startsWith('//') || line.trim().startsWith('/*');
-    const hasInlineComment = line.includes('//') && !line.trim().startsWith('//');
-    
-    if (isFullComment) {
-      // Full comment line - style differently with beautiful green/teal color
-      return (
-        <div key={index} style={{ color: '#6a9fb5', fontStyle: 'italic', opacity: 0.8, lineHeight: 1.6 }}>
-          {line}
-        </div>
-      );
-    } else if (hasInlineComment) {
-      // Inline comment - split the line
-      const commentIndex = line.indexOf('//');
-      const codePart = line.substring(0, commentIndex);
-      const commentPart = line.substring(commentIndex);
-      
-      return (
-        <div key={index} style={{ lineHeight: 1.6 }}>
-          <span style={{ color: '#e6edf3' }}>{codePart}</span>
-          <span style={{ color: '#6a9fb5', fontStyle: 'italic', opacity: 0.85 }}>{commentPart}</span>
-        </div>
-      );
-    } else {
-      // Regular code line with brighter color
-      return (
-        <div key={index} style={{ color: '#e6edf3', lineHeight: 1.6 }}>
-          {line}
-        </div>
-      );
-    }
-  });
-};
 
 export default function CodingPage() {
   const [codingQuestions, setCodingQuestions] = useState<CodingQuestion[]>([]);
@@ -313,41 +293,65 @@ export default function CodingPage() {
                 const solutionText = currentQuestion.solution_code?.replace(/\\n/g, '\n') || '';
                 const files = parseSolutionFiles(solutionText);
                 
-                return files.map((file, index) => {
-                  const colors = getFileColor(file.extension);
+                // Transform files to the format expected by Kibo UI
+                const codeBlockData = files.map((file) => ({
+                  language: file.language as string,
+                  filename: file.filename,
+                  code: file.code,
+                }));
+                
+                // Create a lookup map for language types
+                const languageMap = new Map(files.map(f => [f.filename, f.language]));
+                
+                // Use filename as the value for the CodeBlock component
+                const defaultValue = files[0]?.filename || 'solution';
+                
+                if (files.length === 1 && files[0].filename === 'solution') {
+                  // Single solution without file names
                   return (
-                    <div key={index} style={{ marginBottom: index < files.length - 1 ? 16 : 0 }}>
-                      {file.name !== 'solution' && (
-                        <div style={{ 
-                          fontSize: 16, 
-                          fontWeight: 600, 
-                          color: colors.border,
-                          marginBottom: 8,
-                          padding: '8px 12px',
-                          backgroundColor: colors.bg,
-                          borderLeft: `4px solid ${colors.border}`,
-                          borderRadius: 4
-                        }}>
-                          {file.name}
-                        </div>
-                      )}
-                      <div style={{ 
-                        backgroundColor: colors.bg, 
-                        color: "#e6edf3",
-                        padding: 16, 
-                        borderRadius: 8, 
-                        border: `1px solid ${colors.border}`,
-                        fontFamily: "monospace",
-                        fontSize: 14,
-                        overflow: "auto",
-                        whiteSpace: "pre",
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }}>
-                        {renderCodeWithComments(file.code)}
-                      </div>
-                    </div>
+                    <CodeBlock defaultValue={defaultValue} data={codeBlockData}>
+                      <CodeBlockBody>
+                        {(item) => (
+                          <CodeBlockItem key={item.filename} value={item.filename}>
+                            <CodeBlockContent language={languageMap.get(item.filename)}>
+                              {item.code}
+                            </CodeBlockContent>
+                          </CodeBlockItem>
+                        )}
+                      </CodeBlockBody>
+                    </CodeBlock>
                   );
-                });
+                }
+                
+                // Multiple files with file selector
+                return (
+                  <CodeBlock defaultValue={defaultValue} data={codeBlockData}>
+                    <CodeBlockHeader>
+                      <CodeBlockSelect>
+                        <CodeBlockSelectTrigger>
+                          <CodeBlockSelectValue />
+                        </CodeBlockSelectTrigger>
+                        <CodeBlockSelectContent>
+                          {(item) => (
+                            <CodeBlockSelectItem key={item.filename} value={item.filename}>
+                              {item.filename}
+                            </CodeBlockSelectItem>
+                          )}
+                        </CodeBlockSelectContent>
+                      </CodeBlockSelect>
+                      <CodeBlockCopyButton />
+                    </CodeBlockHeader>
+                    <CodeBlockBody>
+                      {(item) => (
+                        <CodeBlockItem key={item.filename} value={item.filename}>
+                          <CodeBlockContent language={languageMap.get(item.filename)}>
+                            {item.code}
+                          </CodeBlockContent>
+                        </CodeBlockItem>
+                      )}
+                    </CodeBlockBody>
+                  </CodeBlock>
+                );
               })()}
               
               {currentQuestion.explanation && (
