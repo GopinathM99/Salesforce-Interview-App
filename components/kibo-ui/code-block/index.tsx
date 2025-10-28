@@ -449,14 +449,14 @@ export const CodeBlockSelectTrigger = ({
       className={cn(
         "w-fit border-none bg-transparent text-white text-base font-medium shadow-none ml-8",
         "data-[placeholder]:text-white",
-        "[&_[data-slot=select-value]]:!text-red-500",
+        "[&_[data-slot=select-value]]:!text-green-500",
         "[&_[data-slot=select-value]]:!text-[18px]",
-        "[&_[data-slot=select-value]_span]:!text-red-500",
-        "[&_[data-slot=select-value]>*]:!text-red-500",
+        "[&_[data-slot=select-value]_span]:!text-green-500",
+        "[&_[data-slot=select-value]>*]:!text-green-500",
         "[&_[data-slot=select-value]>*]:!text-[18px]",
-        "[&_[data-slot=select-value]>span]:!text-red-500",
+        "[&_[data-slot=select-value]>span]:!text-green-500",
         "[&_[data-slot=select-value]>span]:!text-[18px]",
-        "[&_[data-slot=select-value]_*]:!text-red-500",
+        "[&_[data-slot=select-value]_*]:!text-green-500",
         "[&_[data-slot=select-value]_*]:!text-[18px]",
         "[&_svg]:!text-white",
         "[&_svg:not([class*='text-'])]:!text-white",
@@ -480,8 +480,8 @@ export const CodeBlockSelectValue = ({ className, ...props }: CodeBlockSelectVal
       const style = document.createElement('style');
       style.id = 'codeblock-select-value-styles';
       style.textContent = `
-        [data-slot="select-value"] { color: #ef4444 !important; font-size: 18px !important; }
-        [data-slot="select-value"] * { color: #ef4444 !important; font-size: 18px !important; }
+        [data-slot="select-value"] { color: #22c55e !important; font-size: 18px !important; }
+        [data-slot="select-value"] * { color: #22c55e !important; font-size: 18px !important; }
       `;
       document.head.appendChild(style);
     }
@@ -489,8 +489,8 @@ export const CodeBlockSelectValue = ({ className, ...props }: CodeBlockSelectVal
   
   return (
     <SelectValue 
-      className={cn("text-red-500 text-[18px] [&>*]:!text-red-500 [&>*]:!text-[18px]", className)} 
-      style={{ color: '#ef4444', fontSize: '18px' }}
+      className={cn("text-green-500 text-[18px] [&>*]:!text-green-500 [&>*]:!text-[18px]", className)} 
+      style={{ color: '#22c55e', fontSize: '18px' }}
       {...props} 
     />
   );
