@@ -50,7 +50,7 @@ export default function AdminHomePage() {
           <div className="card">
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
               <h2 className="title">Admin Tools</h2>
-              <Link className="btn" href="/">Back to Home Page</Link>
+              <Link className="btn back-btn" href="/">Back to Home Page</Link>
             </div>
             <p className="muted">
               Pick a tile to manage interview content, admin access, or review metrics.

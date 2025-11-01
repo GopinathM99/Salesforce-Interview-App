@@ -113,7 +113,7 @@ export default function McqPage() {
           style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
         >
           <h2 className="title" style={{ marginBottom: 0 }}>Multiple Choice Questions</h2>
-          <Link className="btn" href="/">
+          <Link className="btn back-btn" href="/">
             Back to Home
           </Link>
         </div>
@@ -153,14 +153,26 @@ export default function McqPage() {
               <span className="pill">Topic: {q.topic}</span>
               <span className="pill">Difficulty: {q.difficulty}</span>
             </div>
-            <h3 style={{ marginTop: 8 }}>{q.question_text}</h3>
+            <h3 style={{ 
+              marginTop: 8, 
+              fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+              fontSize: '22px',
+              lineHeight: '1.5',
+              fontWeight: 400,
+              color: '#f1f5f9'
+            }}>{q.question_text}</h3>
             <ul className="clean" style={{ marginTop: 12 }}>
               {(q.mcq?.choices ?? []).map((c, idx) => (
                 <li
                   key={idx}
                   className={choiceClass(idx)}
                   onClick={() => status === "idle" && setSelected(idx)}
-                  style={{ cursor: status === "idle" ? "pointer" : "default" }}
+                  style={{ 
+                    cursor: status === "idle" ? "pointer" : "default",
+                    fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                    fontSize: '15px',
+                    lineHeight: '1.6'
+                  }}
                 >
                   {c}
                 </li>
@@ -186,8 +198,15 @@ export default function McqPage() {
                   <>
                     <span className="pill" style={{ borderColor: "#7a1b1b" }}>Incorrect</span>
                     {(q.mcq?.explanation ?? q.answer_text) && (
-                      <p style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
-                        <strong>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
+                      <p style={{ 
+                        marginTop: 10, 
+                        whiteSpace: "pre-wrap",
+                        fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                        fontSize: '16px',
+                        lineHeight: '1.7',
+                        color: '#e2e8f0'
+                      }}>
+                        <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
                       </p>
                     )}
                   </>

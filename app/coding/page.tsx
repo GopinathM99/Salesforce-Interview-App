@@ -5,6 +5,107 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CodingQuestion } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
+import {
+  CodeBlock,
+  CodeBlockHeader,
+  CodeBlockBody,
+  CodeBlockItem,
+  CodeBlockContent,
+  CodeBlockCopyButton,
+  CodeBlockSelect,
+  CodeBlockSelectTrigger,
+  CodeBlockSelectValue,
+  CodeBlockSelectContent,
+  CodeBlockSelectItem,
+} from "@/components/kibo-ui/code-block";
+import type { BundledLanguage } from "shiki";
+
+const getLanguageFromExtension = (extension: string): BundledLanguage => {
+  const languageMap: Record<string, BundledLanguage> = {
+    'html': 'html',
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'cls': 'java', // Apex classes use Java syntax highlighting
+    'apex': 'java',
+    'trigger': 'java', // Triggers use Java syntax highlighting
+    'batch': 'java', // Batch classes use Java syntax highlighting
+    'xml': 'xml',
+    'cmp': 'xml', // Lightning components are XML-based
+    'css': 'css',
+    'json': 'json',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+  };
+  
+  return languageMap[extension.toLowerCase()] || 'text';
+};
+
+const parseSolutionFiles = (solutionCode: string) => {
+  if (!solutionCode) return [];
+  
+  // Pattern to match file names in various formats:
+  // - With separators: -- lookup.html -- or === lookup.html ===
+  // - Pure filename: lookup.html
+  // - With comment: // lookup.html or /* lookup.html */
+  // - Trigger declarations: trigger OpportunityContactRoleTrigger on Opportunity (after update)
+  // - Batch classes: public class UpdateAccountRatingBatch implements Database.Batchable<sObject>
+  const filePattern = /^[\s]*[=\-]{2,}[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*[=\-]{2,}[\s]*$|^[\s]*([A-Za-z][\w\/\.-]*\.(html|js|cls|apex|xml|cmp|css|json|ts))[\s]*$|^[\s]*trigger\s+([A-Za-z]\w+)\s+on\s+|^[\s]*(?:public\s+)?class\s+([A-Za-z]\w+Batch)[\s]+(?:(?:implements|extends)\s+)?/im;
+  const lines = solutionCode.split('\n');
+  const files: Array<{ language: BundledLanguage; filename: string; code: string }> = [];
+  let currentFile: { language: BundledLanguage; filename: string; code: string } | null = null;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(filePattern);
+    
+    if (match) {
+      // Save previous file if exists
+      if (currentFile) {
+        files.push(currentFile);
+      }
+      // Start new file
+      let fileName: string;
+      let extension: string;
+      let includeLineInCode: boolean;
+      
+      if (match[6]) {
+        // Batch class declaration: match[6] is the batch class name
+        fileName = match[6];
+        extension = 'batch';
+        includeLineInCode = true; // Include the declaration line
+      } else if (match[5]) {
+        // Trigger declaration: match[5] is the trigger name
+        fileName = match[5];
+        extension = 'trigger';
+        includeLineInCode = true; // Include the declaration line
+      } else {
+        // Regular file: match[1] is for format with separators, match[3] is for standalone filename
+        fileName = match[1] || match[3];
+        extension = fileName.split('.').pop() || '';
+        includeLineInCode = false; // Don't include separator lines
+      }
+      
+      const language = getLanguageFromExtension(extension);
+      currentFile = { language, filename: fileName, code: includeLineInCode ? line : '' };
+    } else if (currentFile) {
+      // Add line to current file
+      currentFile.code += (currentFile.code ? '\n' : '') + line;
+    }
+  }
+  
+  // Add last file
+  if (currentFile) {
+    files.push(currentFile);
+  }
+  
+  // If no files found, treat entire solution as one block
+  if (files.length === 0) {
+    return [{ language: 'text' as BundledLanguage, filename: 'solution', code: solutionCode }];
+  }
+  
+  return files;
+};
+
 
 export default function CodingPage() {
   const [codingQuestions, setCodingQuestions] = useState<CodingQuestion[]>([]);
@@ -81,7 +182,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">Coding Questions</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -97,7 +198,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">Coding Questions</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -115,7 +216,7 @@ export default function CodingPage() {
         <div className="card" style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 className="title">{currentQuestion.title}</h2>
-            <Link className="btn" href="/">
+            <Link className="btn back-btn" href="/">
               Back to Home
             </Link>
           </div>
@@ -188,19 +289,70 @@ export default function CodingPage() {
           {showSolution && (
             <div style={{ marginBottom: 24 }}>
               <h3>Solution</h3>
-              <div style={{ 
-                backgroundColor: "#1e293b", 
-                color: "#f1f5f9",
-                padding: 16, 
-                borderRadius: 8, 
-                border: "1px solid #334155",
-                fontFamily: "monospace",
-                fontSize: 14,
-                overflow: "auto",
-                whiteSpace: "pre-wrap"
-              }}>
-                {currentQuestion.solution_code?.replace(/\\n/g, '\n')}
-              </div>
+              {(() => {
+                const solutionText = currentQuestion.solution_code?.replace(/\\n/g, '\n') || '';
+                const files = parseSolutionFiles(solutionText);
+                
+                // Transform files to the format expected by Kibo UI
+                const codeBlockData = files.map((file) => ({
+                  language: file.language as string,
+                  filename: file.filename,
+                  code: file.code,
+                }));
+                
+                // Create a lookup map for language types
+                const languageMap = new Map(files.map(f => [f.filename, f.language]));
+                
+                // Use filename as the value for the CodeBlock component
+                const defaultValue = files[0]?.filename || 'solution';
+                
+                if (files.length === 1 && files[0].filename === 'solution') {
+                  // Single solution without file names
+                  return (
+                    <CodeBlock defaultValue={defaultValue} data={codeBlockData}>
+                      <CodeBlockBody>
+                        {(item) => (
+                          <CodeBlockItem key={item.filename} value={item.filename}>
+                            <CodeBlockContent language={languageMap.get(item.filename)}>
+                              {item.code}
+                            </CodeBlockContent>
+                          </CodeBlockItem>
+                        )}
+                      </CodeBlockBody>
+                    </CodeBlock>
+                  );
+                }
+                
+                // Multiple files with file selector
+                return (
+                  <CodeBlock defaultValue={defaultValue} data={codeBlockData}>
+                    <CodeBlockHeader>
+                      <CodeBlockSelect>
+                        <CodeBlockSelectTrigger>
+                          <CodeBlockSelectValue />
+                        </CodeBlockSelectTrigger>
+                        <CodeBlockSelectContent>
+                          {(item) => (
+                            <CodeBlockSelectItem key={item.filename} value={item.filename}>
+                              {item.filename}
+                            </CodeBlockSelectItem>
+                          )}
+                        </CodeBlockSelectContent>
+                      </CodeBlockSelect>
+                      <CodeBlockCopyButton />
+                    </CodeBlockHeader>
+                    <CodeBlockBody>
+                      {(item) => (
+                        <CodeBlockItem key={item.filename} value={item.filename}>
+                          <CodeBlockContent language={languageMap.get(item.filename)}>
+                            {item.code}
+                          </CodeBlockContent>
+                        </CodeBlockItem>
+                      )}
+                    </CodeBlockBody>
+                  </CodeBlock>
+                );
+              })()}
               
               {currentQuestion.explanation && (
                 <div style={{ marginTop: 16 }}>
