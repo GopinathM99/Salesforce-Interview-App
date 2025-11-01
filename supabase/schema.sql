@@ -149,22 +149,164 @@ begin
   end if;
 end$$;
 
+-- Create category enum type
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'question_category' and n.nspname = 'public'
+  ) then
+    create type public.question_category as enum ('General', 'Sales Cloud', 'Service Cloud', 'Agentforce', 'CPQ', 'Litify');
+  end if;
+end$$;
+
+-- Ensure all expected enum labels exist (idempotent)
+do $$
+begin
+  if exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'question_category' and n.nspname = 'public'
+  ) then
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'General'
+    ) then
+      alter type public.question_category add value 'General';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Sales Cloud'
+    ) then
+      alter type public.question_category add value 'Sales Cloud';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Service Cloud'
+    ) then
+      alter type public.question_category add value 'Service Cloud';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Agentforce'
+    ) then
+      alter type public.question_category add value 'Agentforce';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'CPQ'
+    ) then
+      alter type public.question_category add value 'CPQ';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Litify'
+    ) then
+      alter type public.question_category add value 'Litify';
+    end if;
+  end if;
+end$$;
+
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   question_text text not null,
   answer_text text,
   topic text not null,
-  sub_topic text,
+  category text,
   difficulty public.difficulty_level not null default 'medium',
   created_at timestamptz not null default now()
 );
 
 alter table if exists public.questions
-  add column if not exists sub_topic text;
+  add column if not exists category text;
+
+-- Migrate category column to enum type
+-- This requires dropping and recreating the column due to PostgreSQL limitations
+do $$
+begin
+  -- Check if category column exists and is still text type
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'questions'
+      and column_name = 'category'
+      and data_type = 'text'
+  ) then
+    -- First, normalize any invalid values to 'General'
+    update public.questions
+    set category = 'General'
+    where category is not null
+      and category not in ('General', 'Sales Cloud', 'Service Cloud', 'Agentforce', 'CPQ', 'Litify');
+
+    -- Add temporary column with enum type
+    alter table public.questions
+      add column if not exists category_enum public.question_category default 'General';
+
+    -- Copy and convert data
+    update public.questions
+    set category_enum = case
+      when category = 'General' then 'General'::public.question_category
+      when category = 'Sales Cloud' then 'Sales Cloud'::public.question_category
+      when category = 'Service Cloud' then 'Service Cloud'::public.question_category
+      when category = 'Agentforce' then 'Agentforce'::public.question_category
+      when category = 'CPQ' then 'CPQ'::public.question_category
+      when category = 'Litify' then 'Litify'::public.question_category
+      else 'General'::public.question_category
+    end;
+
+    -- Drop old column and index
+    drop index if exists idx_questions_category;
+    alter table public.questions drop column if exists category;
+
+    -- Rename new column
+    alter table public.questions rename column category_enum to category;
+
+    -- Recreate index
+    create index if not exists idx_questions_category on public.questions (category);
+  end if;
+
+  -- If column doesn't exist yet, add it with enum type
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'questions'
+      and column_name = 'category'
+  ) then
+    alter table public.questions
+      add column category public.question_category default 'General';
+    create index if not exists idx_questions_category on public.questions (category);
+  end if;
+
+  -- Ensure default value is set
+  alter table public.questions
+    alter column category set default 'General';
+end$$;
 
 -- Indexes for filtering
 create index if not exists idx_questions_topic on public.questions (topic);
-create index if not exists idx_questions_sub_topic on public.questions (sub_topic);
+create index if not exists idx_questions_category on public.questions (category);
 create index if not exists idx_questions_difficulty on public.questions (difficulty);
 
 create table if not exists public.multiple_choice_questions (

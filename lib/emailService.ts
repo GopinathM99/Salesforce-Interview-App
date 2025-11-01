@@ -26,7 +26,7 @@ export interface EmailQuestion {
   question_text: string;
   answer_text: string;
   topic: string;
-  sub_topic: string | null;
+  category: string | null;
   difficulty: 'easy' | 'medium' | 'hard';
   mcq?: {
     id: string;

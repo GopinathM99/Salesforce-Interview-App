@@ -137,7 +137,7 @@ export default function Page() {
             <p>Reveal answers, swipe through, and focus on understanding.</p>
             <Link
               className="btn primary"
-              href="/flashcards"
+              href="/flashcards/select"
               style={{ marginTop: 12, display: "inline-block" }}
             >
               Start Flashcards

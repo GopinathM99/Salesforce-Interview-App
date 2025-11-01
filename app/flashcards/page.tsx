@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Difficulty, Question, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
@@ -10,16 +11,23 @@ import { useAuth } from "@/components/AuthProvider";
 type Filters = {
   topic: string | null;
   difficulty: Difficulty | null;
+  category: string | null;
 };
 
-export default function FlashcardsPage() {
+function FlashcardsContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get("category");
   const userId = user?.id ?? null;
   const [q, setQ] = useState<Question | null>(null);
   const [reveal, setReveal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ topic: null, difficulty: null });
+  const [filters, setFilters] = useState<Filters>({ 
+    topic: null, 
+    difficulty: null,
+    category: categoryFromUrl
+  });
   const [topics, setTopics] = useState<string[]>([]);
   const [info, setInfo] = useState<string | null>(null);
   const [attemptError, setAttemptError] = useState<string | null>(null);
@@ -55,14 +63,19 @@ export default function FlashcardsPage() {
     setReveal(false);
     setInfo(null);
     setAttemptError(null);
-    const { data, error } = await supabase.rpc("random_questions", {
+    
+    // Build the RPC payload - always include all parameters in correct order
+    const payload = {
       n: 1,
       topics: filters.topic ? [filters.topic] : null,
       difficulties: filters.difficulty ? [filters.difficulty] : null,
       mcq_only: false,
       include_attempted: false,
-      flashcards_only: true
-    });
+      flashcards_only: true,
+      categories: filters.category ? [filters.category] : null
+    };
+    
+    const { data, error } = await supabase.rpc("random_questions", payload);
     if (error) {
       setError(error.message);
       setQ(null);
@@ -82,16 +95,47 @@ export default function FlashcardsPage() {
   }, [filters, userId]);
 
   useEffect(() => {
+    // Update category filter when URL changes
+    const category = searchParams.get("category");
+    setFilters((f) => ({ ...f, category }));
+  }, [searchParams]);
+
+  useEffect(() => {
     void loadRandom();
   }, [loadRandom]);
 
   useEffect(() => {
     const loadTopics = async () => {
-      const { data } = await supabase.rpc("list_topics");
-      setTopics(((data as string[]) ?? []).sort());
+      let loadedTopics: string[] = [];
+      if (filters.category) {
+        // Load topics filtered by category
+        console.log("Loading topics for category:", filters.category);
+        const { data, error } = await supabase.rpc("list_topics_by_category", {
+          category_filter: filters.category
+        });
+        if (error) {
+          console.error("Error loading topics by category:", error);
+          // Fallback to loading all topics on error
+          const { data: allTopicsData } = await supabase.rpc("list_topics");
+          loadedTopics = ((allTopicsData as string[]) ?? []).sort();
+        } else {
+          console.log("Topics loaded:", data);
+          loadedTopics = ((data as string[]) ?? []).sort();
+        }
+      } else {
+        // Load all topics when no category is selected
+        const { data } = await supabase.rpc("list_topics");
+        loadedTopics = ((data as string[]) ?? []).sort();
+      }
+      setTopics(loadedTopics);
+      
+      // Reset topic filter if the selected topic is not in the new list
+      if (filters.topic && !loadedTopics.includes(filters.topic)) {
+        setFilters((f) => ({ ...f, topic: null }));
+      }
     };
     void loadTopics();
-  }, []);
+  }, [filters.category]);
 
   const handleNext = useCallback(async () => {
     await recordAttempt(q);
@@ -102,6 +146,7 @@ export default function FlashcardsPage() {
     if (!q) return null;
     return (
       <div className="row" style={{ gap: 8 }}>
+        {q.category && <span className="pill">Category: {q.category}</span>}
         <span className="pill">Topic: {q.topic}</span>
         <span className="pill">Difficulty: {q.difficulty}</span>
       </div>
@@ -124,6 +169,19 @@ export default function FlashcardsPage() {
           <p className="muted" style={{ marginBottom: 12 }}>
             {"Sign in to save your progress and hide flashcards you've already seen."}
           </p>
+        )}
+        {filters.category && (
+          <div style={{ marginBottom: 12, padding: "8px 12px", backgroundColor: "rgba(59, 130, 246, 0.1)", borderRadius: 8 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              Category: <span style={{ color: "#3b82f6" }}>{filters.category}</span>
+            </p>
+            <Link 
+              href="/flashcards/select" 
+              style={{ fontSize: "14px", color: "#3b82f6", textDecoration: "underline" }}
+            >
+              Change category
+            </Link>
+          </div>
         )}
         <div className="row" style={{ gap: 16, marginBottom: 8 }}>
           <div className="col">
@@ -188,5 +246,20 @@ export default function FlashcardsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function FlashcardsPage() {
+  return (
+    <Suspense fallback={
+      <div className="grid">
+        <div className="card">
+          <h2 className="title">Flashcards</h2>
+          <p className="muted">Loading...</p>
+        </div>
+      </div>
+    }>
+      <FlashcardsContent />
+    </Suspense>
   );
 }

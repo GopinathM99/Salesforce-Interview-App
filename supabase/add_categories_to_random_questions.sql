@@ -1,4 +1,7 @@
--- Drop all existing overloads comprehensively
+-- Migration: Add categories parameter to random_questions function
+-- Run this script in your Supabase SQL editor
+
+-- Step 1: Drop all existing overloads of random_questions
 do $$
 declare
   r record;
@@ -13,8 +16,7 @@ begin
   end loop;
 end$$;
 
--- Random selection RPC with optional filters
--- Note: categories parameter added at the end to maintain backward compatibility
+-- Step 2: Recreate the function with categories parameter
 create or replace function public.random_questions(
   n int,
   topics text[] default null,
@@ -84,37 +86,10 @@ as $$
   limit n;
 $$;
 
--- Grant execute permissions
+-- Step 3: Grant execute permissions
 grant execute on function public.random_questions(int, text[], text[], boolean, boolean, boolean, text[]) to anon, authenticated;
 
--- Distinct topics
-create or replace function public.list_topics()
-returns setof text
-language sql
-stable
-as $$
-  select distinct q.topic from public.questions q where q.topic is not null order by 1;
-$$;
-
-grant execute on function public.list_topics() to anon, authenticated;
-
--- Distinct topics filtered by category
-create or replace function public.list_topics_by_category(category_filter text)
-returns setof text
-language sql
-stable
-as $$
-  select distinct q.topic 
-  from public.questions q 
-  where q.topic is not null 
-    and q.category is not null
-    and q.category::text = category_filter
-  order by 1;
-$$;
-
-grant execute on function public.list_topics_by_category(text) to anon, authenticated;
-
--- Distinct categories
+-- Step 4: Create list_categories function to retrieve all distinct categories
 create or replace function public.list_categories()
 returns setof text
 language sql
@@ -125,45 +100,20 @@ $$;
 
 grant execute on function public.list_categories() to anon, authenticated;
 
--- Track user sessions
-drop function if exists public.log_user_sign_in(text, text, text);
+-- Step 5: Verify the function was created
+do $$
+begin
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on p.pronamespace = n.oid
+    where n.nspname = 'public'
+      and p.proname = 'random_questions'
+      and pg_get_function_arguments(p.oid) like '%categories%'
+  ) then
+    raise notice 'Success: random_questions function created with categories parameter';
+  else
+    raise warning 'Warning: Function may not have been created correctly';
+  end if;
+end$$;
 
-create or replace function public.log_user_sign_in(
-  first_name text default null,
-  last_name text default null,
-  email text default null
-)
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-  insert into public.user_profiles (
-    user_id,
-    first_name,
-    last_name,
-    email,
-    first_signed_in_at,
-    last_signed_in_at,
-    updated_at
-  )
-  values (
-    auth.uid(),
-    nullif(first_name, ''),
-    nullif(last_name, ''),
-    coalesce(nullif(email, ''), auth.jwt() ->> 'email'),
-    now(),
-    now(),
-    now()
-  )
-  on conflict (user_id) do update
-    set
-      first_name = coalesce(excluded.first_name, public.user_profiles.first_name),
-      last_name = coalesce(excluded.last_name, public.user_profiles.last_name),
-      email = coalesce(excluded.email, public.user_profiles.email),
-      first_signed_in_at = least(public.user_profiles.first_signed_in_at, excluded.first_signed_in_at),
-      last_signed_in_at = greatest(public.user_profiles.last_signed_in_at, excluded.last_signed_in_at),
-      updated_at = now();
-$$;
-
-grant execute on function public.log_user_sign_in(text, text, text) to authenticated;

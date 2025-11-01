@@ -27,7 +27,7 @@ export interface RawQuestion {
   question_text: string;
   answer_text: string | null;
   topic: string;
-  sub_topic: string | null;
+  category: string | null;
   difficulty: Difficulty;
   created_at: string;
   multiple_choice_questions?: McqLike | McqLike[] | null;
@@ -39,7 +39,7 @@ export interface Question {
   question_text: string;
   answer_text: string | null;
   topic: string;
-  sub_topic: string | null;
+  category: string | null;
   difficulty: Difficulty;
   created_at: string;
   mcq: MultipleChoiceQuestion | null;
@@ -165,7 +165,7 @@ export const normalizeQuestion = (raw: RawQuestion): Question => {
     question_text: raw.question_text,
     answer_text: raw.answer_text,
     topic: raw.topic,
-    sub_topic: raw.sub_topic ?? null,
+    category: raw.category ?? null,
     difficulty: raw.difficulty,
     created_at: raw.created_at,
     mcq
