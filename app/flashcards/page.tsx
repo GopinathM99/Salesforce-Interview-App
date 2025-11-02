@@ -171,13 +171,33 @@ function FlashcardsContent() {
           </p>
         )}
         {filters.category && (
-          <div style={{ marginBottom: 12, padding: "8px 12px", backgroundColor: "rgba(59, 130, 246, 0.1)", borderRadius: 8 }}>
-            <p style={{ margin: 0, fontWeight: 600 }}>
-              Category: <span style={{ color: "#3b82f6" }}>{filters.category}</span>
-            </p>
+          <div style={{ 
+            marginBottom: 16, 
+            padding: "12px 16px", 
+            backgroundColor: "rgba(59, 130, 246, 0.1)", 
+            borderRadius: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 500, color: "#cbd5e1" }}>Category:</span>
+              <span style={{ color: "#3b82f6", fontWeight: 600 }}>{filters.category}</span>
+            </div>
             <Link 
               href="/flashcards/select" 
-              style={{ fontSize: "14px", color: "#3b82f6", textDecoration: "underline" }}
+              style={{ 
+                fontSize: "14px", 
+                color: "#3b82f6", 
+                textDecoration: "none",
+                fontWeight: 500,
+                padding: "4px 8px",
+                borderRadius: 4,
+                transition: "background-color 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.15)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
             >
               Change category
             </Link>
