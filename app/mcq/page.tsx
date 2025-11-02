@@ -1,26 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Difficulty, Question, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 
-export default function McqPage() {
+type Filters = {
+  topic: string | null;
+  difficulty: Difficulty | null;
+  category: string | null;
+};
+
+function McqContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get("category");
+  const userId = user?.id ?? null;
   const [q, setQ] = useState<Question | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [topic, setTopic] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
+  const [filters, setFilters] = useState<Filters>({ 
+    topic: null, 
+    difficulty: null,
+    category: categoryFromUrl
+  });
   const [topics, setTopics] = useState<string[]>([]);
   const [info, setInfo] = useState<string | null>(null);
   const [savingAttempt, setSavingAttempt] = useState(false);
   const [attemptError, setAttemptError] = useState<string | null>(null);
-  const userId = user?.id ?? null;
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -29,14 +41,19 @@ export default function McqPage() {
     setSelected(null);
     setStatus("idle");
     setAttemptError(null);
-    const { data, error } = await supabase.rpc("random_questions", {
+    
+    // Build the RPC payload - always include all parameters in correct order
+    const payload = {
       n: 1,
-      topics: topic ? [topic] : null,
-      difficulties: difficulty ? [difficulty] : null,
+      topics: filters.topic ? [filters.topic] : null,
+      difficulties: filters.difficulty ? [filters.difficulty] : null,
       mcq_only: true,
       include_attempted: false,
-      flashcards_only: false
-    });
+      flashcards_only: false,
+      categories: filters.category ? [filters.category] : null
+    };
+    
+    const { data, error } = await supabase.rpc("random_questions", payload);
     if (error) {
       setError(error.message);
       setQ(null);
@@ -58,7 +75,13 @@ export default function McqPage() {
       }
     }
     setLoading(false);
-  }, [topic, difficulty, userId]);
+  }, [filters, userId]);
+
+  useEffect(() => {
+    // Update category filter when URL changes
+    const category = searchParams.get("category");
+    setFilters((f) => ({ ...f, category }));
+  }, [searchParams]);
 
   useEffect(() => {
     void loadRandom();
@@ -66,11 +89,36 @@ export default function McqPage() {
 
   useEffect(() => {
     const loadTopics = async () => {
-      const { data } = await supabase.rpc("list_topics");
-      setTopics(((data as string[]) ?? []).sort());
+      let loadedTopics: string[] = [];
+      if (filters.category) {
+        // Load topics filtered by category
+        console.log("Loading topics for category:", filters.category);
+        const { data, error } = await supabase.rpc("list_topics_by_category", {
+          category_filter: filters.category
+        });
+        if (error) {
+          console.error("Error loading topics by category:", error);
+          // Fallback to loading all topics on error
+          const { data: allTopicsData } = await supabase.rpc("list_topics");
+          loadedTopics = ((allTopicsData as string[]) ?? []).sort();
+        } else {
+          console.log("Topics loaded:", data);
+          loadedTopics = ((data as string[]) ?? []).sort();
+        }
+      } else {
+        // Load all topics when no category is selected
+        const { data } = await supabase.rpc("list_topics");
+        loadedTopics = ((data as string[]) ?? []).sort();
+      }
+      setTopics(loadedTopics);
+      
+      // Reset topic filter if the selected topic is not in the new list
+      if (filters.topic && !loadedTopics.includes(filters.topic)) {
+        setFilters((f) => ({ ...f, topic: null }));
+      }
     };
     void loadTopics();
-  }, []);
+  }, [filters.category]);
 
   const submit = async () => {
     if (q == null || selected == null || !q.mcq) return;
@@ -122,10 +170,43 @@ export default function McqPage() {
             {"Sign in to save your progress and hide questions you've already attempted."}
           </p>
         )}
+        {filters.category && (
+          <div style={{ 
+            marginBottom: 16, 
+            padding: "12px 16px", 
+            backgroundColor: "rgba(59, 130, 246, 0.1)", 
+            borderRadius: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 500, color: "#cbd5e1" }}>Category:</span>
+              <span style={{ color: "#3b82f6", fontWeight: 600 }}>{filters.category}</span>
+            </div>
+            <Link 
+              href="/mcq/select" 
+              style={{ 
+                fontSize: "14px", 
+                color: "#3b82f6", 
+                textDecoration: "none",
+                fontWeight: 500,
+                padding: "4px 8px",
+                borderRadius: 4,
+                transition: "background-color 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.15)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+            >
+              Change category
+            </Link>
+          </div>
+        )}
         <div className="row" style={{ gap: 16, marginBottom: 8 }}>
           <div className="col">
             <label>Topic</label>
-            <select value={topic ?? ""} onChange={(e) => setTopic(e.target.value || null)}>
+            <select value={filters.topic ?? ""} onChange={(e) => setFilters((f) => ({ ...f, topic: e.target.value || null }))}>
               <option value="">All topics</option>
               {topics.map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -134,7 +215,7 @@ export default function McqPage() {
           </div>
           <div className="col">
             <label>Difficulty</label>
-            <select value={difficulty ?? ""} onChange={(e) => setDifficulty((e.target.value || null) as Difficulty | null)}>
+            <select value={filters.difficulty ?? ""} onChange={(e) => setFilters((f) => ({ ...f, difficulty: (e.target.value || null) as Difficulty | null }))}>
               <option value="">All</option>
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
@@ -150,6 +231,7 @@ export default function McqPage() {
         {q && (
           <div className="card" style={{ marginTop: 12 }}>
             <div className="row" style={{ gap: 8 }}>
+              {q.category && <span className="pill">Category: {q.category}</span>}
               <span className="pill">Topic: {q.topic}</span>
               <span className="pill">Difficulty: {q.difficulty}</span>
             </div>
@@ -217,5 +299,20 @@ export default function McqPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function McqPage() {
+  return (
+    <Suspense fallback={
+      <div className="grid">
+        <div className="card">
+          <h2 className="title">Multiple Choice Questions</h2>
+          <p className="muted">Loading...</p>
+        </div>
+      </div>
+    }>
+      <McqContent />
+    </Suspense>
   );
 }
