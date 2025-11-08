@@ -118,6 +118,7 @@ function McqContent() {
       }
     };
     void loadTopics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.category]);
 
   const submit = async () => {

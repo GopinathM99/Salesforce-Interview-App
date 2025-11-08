@@ -75,7 +75,7 @@ export default function ContactPage() {
       <div className="card" style={{ gridColumn: "1 / -1", maxWidth: 800, margin: "0 auto" }}>
         <h2 className="title">Contact Us</h2>
         <p className="muted" style={{ marginBottom: 24 }}>
-          Have questions, suggestions, or feedback? We'd love to hear from you! Fill out the form below and we'll get back to you as soon as possible.
+          Have questions, suggestions, or feedback? We&apos;d love to hear from you! Fill out the form below and we&apos;ll get back to you as soon as possible.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
