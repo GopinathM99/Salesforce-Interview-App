@@ -216,10 +216,31 @@ export default function ContactPage() {
             border: "1px solid #e5e7eb",
           }}
         >
-          <h3 style={{ marginTop: 0 }}>Other Ways to Connect</h3>
-          <p className="muted" style={{ marginBottom: 12 }}>
-            Looking for something specific? Here are some helpful resources:
-          </p>
+          <h3 style={{ marginTop: 0 }}>Developed and Maintained By</h3>
+          <div style={{ marginBottom: 20, padding: "16px", backgroundColor: "white", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+            <p style={{ margin: "0 0 8px 0", fontWeight: 600, fontSize: 16, color: "#1f2937" }}>
+              Gopinath Merugumala
+            </p>
+            <p style={{ margin: "0 0 8px 0", color: "#374151" }}>
+              <span style={{ color: "#6b7280", marginRight: 8 }}>Email:</span>
+              <a href="mailto:GopinathMerugumala@gmail.com" style={{ color: "#007bff", textDecoration: "none" }}>
+                GopinathMerugumala@gmail.com
+              </a>
+            </p>
+            <p style={{ margin: 0, color: "#374151" }}>
+              <span style={{ color: "#6b7280", marginRight: 8 }}>LinkedIn:</span>
+              <a
+                href="https://www.linkedin.com/in/gopinath-merugumala/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#007bff", textDecoration: "none" }}
+              >
+                linkedin.com/in/gopinath-merugumala
+              </a>
+            </p>
+          </div>
+
+          <h3 style={{ marginTop: 24 }}>Other Resources</h3>
           <ul style={{ paddingLeft: 20 }}>
             <li style={{ marginBottom: 8 }}>
               <Link href="/subscribe" style={{ color: "#007bff", textDecoration: "none" }}>

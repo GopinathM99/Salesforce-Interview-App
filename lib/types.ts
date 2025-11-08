@@ -1,4 +1,5 @@
 export type Difficulty = "easy" | "medium" | "hard";
+export type QuestionType = "Knowledge" | "Scenarios";
 
 export interface MultipleChoiceQuestion {
   id: string;
@@ -24,11 +25,13 @@ type McqLike = {
 
 export interface RawQuestion {
   id: string;
+  question_number?: number;
   question_text: string;
   answer_text: string | null;
   topic: string;
   category: string | null;
   difficulty: Difficulty;
+  question_type?: QuestionType;
   created_at: string;
   multiple_choice_questions?: McqLike | McqLike[] | null;
   mcq?: McqLike | null;
@@ -36,11 +39,13 @@ export interface RawQuestion {
 
 export interface Question {
   id: string;
+  question_number?: number;
   question_text: string;
   answer_text: string | null;
   topic: string;
   category: string | null;
   difficulty: Difficulty;
+  question_type?: QuestionType;
   created_at: string;
   mcq: MultipleChoiceQuestion | null;
 }
@@ -162,11 +167,13 @@ export const normalizeQuestion = (raw: RawQuestion): Question => {
 
   return {
     id: raw.id,
+    question_number: raw.question_number,
     question_text: raw.question_text,
     answer_text: raw.answer_text,
     topic: raw.topic,
     category: raw.category ?? null,
     difficulty: raw.difficulty,
+    question_type: raw.question_type,
     created_at: raw.created_at,
     mcq
   };

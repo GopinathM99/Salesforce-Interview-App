@@ -227,6 +227,48 @@ begin
   end if;
 end$$;
 
+-- Create question_type enum type
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'question_type' and n.nspname = 'public'
+  ) then
+    create type public.question_type as enum ('Knowledge', 'Scenarios');
+  end if;
+end$$;
+
+-- Ensure all expected enum labels exist (idempotent)
+do $$
+begin
+  if exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'question_type' and n.nspname = 'public'
+  ) then
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_type' and e.enumlabel = 'Knowledge'
+    ) then
+      alter type public.question_type add value 'Knowledge';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_type' and e.enumlabel = 'Scenarios'
+    ) then
+      alter type public.question_type add value 'Scenarios';
+    end if;
+  end if;
+end$$;
+
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   question_text text not null,
@@ -304,10 +346,25 @@ begin
     alter column category set default 'General';
 end$$;
 
+-- Add question_type column
+alter table public.questions
+  add column if not exists question_type public.question_type default 'Knowledge';
+
+-- Create sequence for question_number (5-digit unique ID starting from 1)
+create sequence if not exists public.questions_number_seq start with 1;
+
+-- Add question_number column with auto-incrementing value
+alter table public.questions
+  add column if not exists question_number int unique default nextval('public.questions_number_seq');
+
+-- Create unique index for question_number
+create unique index if not exists idx_questions_question_number_unique on public.questions (question_number);
+
 -- Indexes for filtering
 create index if not exists idx_questions_topic on public.questions (topic);
 create index if not exists idx_questions_category on public.questions (category);
 create index if not exists idx_questions_difficulty on public.questions (difficulty);
+create index if not exists idx_questions_question_type on public.questions (question_type);
 
 create table if not exists public.multiple_choice_questions (
   id uuid primary key default gen_random_uuid(),

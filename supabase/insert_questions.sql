@@ -9,6 +9,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use a web-to-lead form that creates Salesforce Lead records.", "Integrate the website with Litify Intakes to automatically create an intake record and use workflows for assignment.", "Manually create a new Matter record for every website inquiry.", "Export website inquiries to a CSV and use Data Loader to import them weekly."]'::jsonb,
 1
 ),
@@ -18,6 +19,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Create and apply a standardized Matter Plan template for car accident cases.", "Build a validation rule on the Matter object that requires all fields to be filled.", "Use Salesforce a Chatter group to post daily reminders of the procedures.", "Create a custom report that tracks the time spent on each stage of the case."]'::jsonb,
 0
 ),
@@ -27,6 +29,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use email templates to send a generic welcome message to new clients.", "Manually copy and paste client information into a Word document saved on a shared drive.", "Implement a document generation solution using a template with merge fields to create letters automatically.", "Require all clients to physically come to the office to sign a pre-printed letter."]'::jsonb,
 2
 ),
@@ -36,6 +39,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Delete the settlement field from the page layout for all users.", "Create a separate, private Chatter group to discuss settlement details.", "Use field-level security to restrict visibility of the settlement field to specific user profiles.", "Store all settlement information in a separate password-protected spreadsheet."]'::jsonb,
 2
 ),
@@ -45,6 +49,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Schedule a weekly meeting to verbally update the partners on every case.", "Create a custom dashboard with reports that visualize key firm metrics like caseload and case stages.", "Send a daily email with a list of all active cases.", "Give the managing partners full system administrator access to browse all records."]'::jsonb,
 1
 ),
@@ -54,6 +59,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use the \"Key Dates\" object to record the statute of limitations and set up automated reminders.", "Rely on the attorneys to keep track of all deadlines in their personal calendars.", "Create a custom text field on the Matter object to type in the date.", "Post a list of upcoming deadlines on a physical whiteboard in the office."]'::jsonb,
 0
 ),
@@ -63,6 +69,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Track all referral information in a separate Excel spreadsheet.", "Use the standard Salesforce \"Lead\" object and add a custom field for \"Referred By\".", "Use the dedicated \"Referrals\" object in Litify to track incoming/outgoing cases and fee agreements.", "Create a private Chatter group for each referral partner to discuss cases."]'::jsonb,
 2
 ),
@@ -72,6 +79,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Tell the client they have to wait for the assigned attorney to call them back.", "Search through the attorney''s sent email folder to find the last message.", "Check the \"Activity\" timeline on the Matter record for a log of emails, calls, and notes.", "Ask the client if they remember what the last communication was about."]'::jsonb,
 2
 ),
@@ -81,6 +89,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Ask all employees to submit their hours and receipts in a weekly email.", "Use the \"Time Entry\" and \"Expense\" objects on the Matter record to log all billable activities and costs.", "Track all expenses on a corporate credit card statement and sort them out at the end of the month.", "Use a separate, non-integrated software for all time and expense tracking."]'::jsonb,
 1
 ),
@@ -90,6 +99,7 @@ values
 'Litify',
 'easy'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Mandate that all attorneys must use the system or face penalties.", "Provide role-based training that focuses on how Litify makes their specific jobs easier.", "Only provide training to the paralegals and assume the attorneys will learn from them.", "Assume they will not adopt the new system and create workarounds for them."]'::jsonb,
 1
 ),
@@ -100,6 +110,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Update the Case Type field and configure automation to swap the Matter Plan accordingly.", "Create a brand new Matter record with the correct case type and close the old one.", "Leave the case type as \"slip and fall\" but make a note in the description field.", "Manually delete all tasks from the old plan and add new ones from a checklist."]'::jsonb,
 0
 ),
@@ -109,6 +120,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Manually search for the client''s name in the global search bar.", "Use Litify''s native conflict check feature to search all relevant parties against existing records.", "Ask the potential client if they have ever been involved with the firm before.", "A conflict check is not necessary until the case becomes an active Matter."]'::jsonb,
 1
 ),
@@ -118,6 +130,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Store all received medical records in a single folder on the Matter record.", "Use a separate spreadsheet to track the status of all medical record requests.", "Create a Chatter post for each medical record that is received.", "Use the \"Medical Record Request\" and \"Medical Bill\" objects to track status and store documents for each provider."]'::jsonb,
 3
 ),
@@ -127,6 +140,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Ensure the \"Marketing Source\" field is captured on Intakes and build reports to track ROI.", "Only track the number of phone calls received from each campaign.", "Assume that the campaign with the highest budget is the most successful.", "Ask clients during their first meeting how they heard about the firm and record it in a note."]'::jsonb,
 0
 ),
@@ -136,6 +150,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use Experience Cloud to create a secure portal for the co-counsel to access case information.", "Share a link to a public Dropbox folder with all case documents.", "Add the co-counsel as a full internal user in your Litify organization.", "Send all documents and updates as password-protected zip files via email."]'::jsonb,
 0
 ),
@@ -145,6 +160,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Create one single Matter record and add every plaintiff as a related contact.", "Create a separate, unconnected Matter record for each of the hundreds of plaintiffs.", "Use the Mass Torts feature to link hundreds of individual Matters to a single Master Matter.", "Manage the entire case outside of Litify using spreadsheets for better organization."]'::jsonb,
 2
 ),
@@ -154,6 +170,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Add a note to the Chatter feed that a fee was paid.", "Create a new \"Expense\" record on the Matter, detailing the amount and type of cost.", "Email the accounting department and ask them to remember the expense.", "Subtract the amount from the firm''s general operating budget."]'::jsonb,
 1
 ),
@@ -163,6 +180,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Provide the intake team with two different printed paper forms to fill out.", "Train the intake team to memorize all the questions for both case types.", "Configure dynamic \"Question Sets\" that appear based on the \"Case Type\" selected during intake.", "Create two different Intake record types with separate page layouts."]'::jsonb,
 2
 ),
@@ -172,6 +190,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Export the financial data to Excel and manually create the settlement statement.", "Use a document generation tool with a template to automatically pull financial data from the Matter and calculate the breakdown.", "Ask the accounting department to manually draft a letter to the client with the details.", "Write the breakdown of funds in the body of an email to the client."]'::jsonb,
 1
 ),
@@ -181,6 +200,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Send an email to the legal team with the client''s contact information.", "Use the \"Convert\" button on the Intake to automatically create a new Matter and transfer all data.", "Clone the Intake record and manually re-assign it to the new attorney.", "Print all intake documents and leave them on the attorney''s desk."]'::jsonb,
 1
 ),
@@ -190,6 +210,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Create a single \"Offer\" record on the Matter and update it with the latest offer.", "Use the \"Negotiations\" object to create a parent record for each adjuster, then log each offer as a related \"Offer\" record.", "Track all offers in a note that is pinned to the Matter''s Chatter feed.", "Use a spreadsheet outside of Litify to manage the negotiation details."]'::jsonb,
 1
 ),
@@ -199,6 +220,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Combine all policy details into a single text field on the Matter record.", "Create a separate \"Insurance\" record for each policy on the Matter, using the \"Type\" field to differentiate them.", "Only track the primary defendant''s insurance policy to keep things simple.", "Create a custom object called \"Policies\" to store the information."]'::jsonb,
 1
 ),
@@ -208,6 +230,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use the \"Liens\" object to create a record for each obligation, tracking the lienholder, amounts, and status.", "Keep track of liens by flagging emails received from the lienholders.", "Add the lien amounts to the \"Case Expenses\" to be deducted.", "Create tasks for the attorney to remind them to pay the liens before closing the case."]'::jsonb,
 0
 ),
@@ -217,6 +240,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Create calendar events in Outlook for each deposition.", "Create a single \"Deposition\" record and list all five witnesses in the description field.", "Use the \"Depositions\" object to create a separate record for each witness to store schedules, transcripts, and notes.", "Store all deposition transcripts in a shared network drive folder outside of Litify."]'::jsonb,
 2
 ),
@@ -226,6 +250,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Use a Flow or Process Builder to automatically calculate the dates from the \"Date of Incident\" and create Key Date records.", "Manually calculate the dates for every case and create the Key Date records by hand.", "Send an email notification to a paralegal to calculate the dates whenever a new case is created.", "This level of automation is not possible in Litify or Salesforce."]'::jsonb,
 0
 ),
@@ -235,6 +260,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Tell the accounting department to write two checks and make a note of it.", "Create \"Disbursement\" records from the Matter for each payment to maintain an accurate trust ledger.", "Pay the invoices with a firm credit card and log them as general expenses.", "Withdraw cash from the trust account to pay the invoices."]'::jsonb,
 1
 ),
@@ -244,6 +270,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Email a PDF of the agreement and ask the client to print, sign, scan, and email it back.", "Integrate Litify with an e-signature app like DocuSign to automate sending and receiving the signed agreement.", "Use the standard \"Send Email\" action to attach a Word document.", "Mail a physical copy of the retainer to the client and wait for it to be mailed back."]'::jsonb,
 1
 ),
@@ -253,6 +280,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Simply give the client the other firm''s phone number.", "Change the intake status to \"Closed\" and make a note about the referral.", "Forward the intake email to the partner firm and delete the intake from Litify.", "Create a \"Referral\" record, set the status to \"Referred Out,\" and use it to track follow-up and fee status."]'::jsonb,
 3
 ),
@@ -262,6 +290,7 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["Create a single task with all ten deadlines listed in the description.", "Create a separate \"Key Date\" record for each court-mandated deadline and use a dashboard report to track them.", "Enter all ten dates into one long text field on the Matter record.", "Create a recurring event on the lead attorney''s calendar."]'::jsonb,
 1
 ),
@@ -271,14 +300,15 @@ values
 'Litify',
 'medium'::public.difficulty_level,
 'Litify'::public.question_category,
+'Knowledge'::public.question_type,
 '["The staff member should tell the client that only their assigned attorney can provide an update.", "The staff member can check the case \"Stage\" and \"Activity\" timeline on the Matter record to provide a comprehensive update.", "The staff member has to find and read through the entire physical case file.", "The staff member should send an urgent email to the busy attorney and wait for a response."]'::jsonb,
 1
 )
-) as t(question_text, explanation, topic, difficulty, category, choices, correct_choice_index)
+) as t(question_text, explanation, topic, difficulty, category, question_type, choices, correct_choice_index)
 ),
 inserted_questions as (
-insert into public.questions (question_text, answer_text, topic, difficulty, category)
-select question_text, explanation, topic, difficulty, category
+insert into public.questions (question_text, answer_text, topic, difficulty, category, question_type)
+select question_text, explanation, topic, difficulty, category, question_type
 from mcq_rows
 returning id, question_text, answer_text
 )

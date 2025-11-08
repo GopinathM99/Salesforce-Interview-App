@@ -26,11 +26,13 @@ create or replace function public.random_questions(
 )
 returns table (
   id uuid,
+  question_number int,
   question_text text,
   answer_text text,
   topic text,
   category text,
   difficulty public.difficulty_level,
+  question_type public.question_type,
   created_at timestamptz,
   mcq jsonb
 )
@@ -39,11 +41,13 @@ stable
 as $$
   select
     q.id,
+    q.question_number,
     q.question_text,
     q.answer_text,
     q.topic,
     q.category,
     q.difficulty,
+    q.question_type,
     q.created_at,
     case
       when mcq.id is null then null

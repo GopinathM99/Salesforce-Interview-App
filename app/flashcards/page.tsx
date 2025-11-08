@@ -145,10 +145,17 @@ function FlashcardsContent() {
   const meta = useMemo(() => {
     if (!q) return null;
     return (
-      <div className="row" style={{ gap: 8 }}>
-        {q.category && <span className="pill">Category: {q.category}</span>}
-        <span className="pill">Topic: {q.topic}</span>
-        <span className="pill">Difficulty: {q.difficulty}</span>
+      <div className="row" style={{ gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {q.category && <span className="pill">Category: {q.category}</span>}
+          <span className="pill">Topic: {q.topic}</span>
+          <span className="pill">Difficulty: {q.difficulty}</span>
+        </div>
+        {q.question_number && (
+          <span className="pill" style={{ fontWeight: 600, color: "#3b82f6", fontSize: "14px" }}>
+            # {q.question_number.toString().padStart(5, '0')}
+          </span>
+        )}
       </div>
     );
   }, [q]);
