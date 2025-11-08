@@ -27,6 +27,10 @@ export default function RootLayout({
             <main>{children}</main>
             <footer className="footer">
               <span>Built with Next.js + Supabase</span>
+              <span style={{ margin: "0 8px" }}>•</span>
+              <a href="/contact" style={{ color: "#007bff", textDecoration: "none" }}>
+                Contact Us
+              </a>
             </footer>
           </div>
         </AuthProvider>

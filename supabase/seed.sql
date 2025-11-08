@@ -7,17 +7,17 @@ set first_name = excluded.first_name,
     is_primary = true;
 
 -- Seed a handful of Salesforce dev interview questions
-insert into public.questions (question_text, answer_text, topic, difficulty)
+insert into public.questions (question_text, answer_text, topic, difficulty, category)
 values
   (
     'What is a Governor Limit in Salesforce Apex and why does it exist?',
     'Governor Limits are runtime limits enforced by Salesforce to ensure multi-tenant stability. Examples: SOQL queries per transaction, DML statements per transaction, CPU time, heap size, callouts, queueable depth. Code must be bulkified and efficient to stay within these limits.',
-    'Apex', 'easy'
+    'Apex', 'easy', 'General'::public.question_category
   ),
   (
     'How do you call an external REST service from Apex and handle limits?',
     'Use HttpRequest/Http classes with a named credential where possible. Respect callout limits (max 100 per transaction), set timeouts, use queueable/future for async, and handle retries/backoffs.',
-    'Integration', 'medium'
+    'Integration', 'medium', 'General'::public.question_category
   );
 
 
@@ -76,8 +76,8 @@ with mcq_rows as (
   ) as t(question_text, explanation, topic, difficulty, choices, correct_choice_index)
 ),
 inserted_questions as (
-  insert into public.questions (question_text, answer_text, topic, difficulty)
-  select question_text, explanation, topic, difficulty
+  insert into public.questions (question_text, answer_text, topic, difficulty, category)
+  select question_text, explanation, topic, difficulty, 'General'::public.question_category
   from mcq_rows
   returning id, question_text, answer_text
 )
