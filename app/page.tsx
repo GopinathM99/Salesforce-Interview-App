@@ -137,7 +137,7 @@ export default function Page() {
             <p>Reveal answers, swipe through, and focus on understanding.</p>
             <Link
               className="btn primary home-btn"
-              href="/flashcards"
+              href="/flashcards/select"
               style={{ marginTop: 12, display: "inline-block" }}
             >
               Start Flashcards
@@ -148,7 +148,7 @@ export default function Page() {
             <p>Pick the right option and get instant feedback.</p>
             <Link
               className="btn primary home-btn"
-              href="/mcq"
+              href="/mcq/select"
               style={{ marginTop: 12, display: "inline-block" }}
             >
               Start MCQs
