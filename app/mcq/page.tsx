@@ -33,6 +33,7 @@ function McqContent() {
   const [info, setInfo] = useState<string | null>(null);
   const [savingAttempt, setSavingAttempt] = useState(false);
   const [attemptError, setAttemptError] = useState<string | null>(null);
+  const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -41,6 +42,7 @@ function McqContent() {
     setSelected(null);
     setStatus("idle");
     setAttemptError(null);
+    setSelectionWarning(null);
     
     // Build the RPC payload - always include all parameters in correct order
     const payload = {
@@ -122,7 +124,12 @@ function McqContent() {
   }, [filters.category]);
 
   const submit = async () => {
-    if (q == null || selected == null || !q.mcq) return;
+    if (status !== "idle" || q == null || !q.mcq) return;
+    if (selected == null) {
+      setSelectionWarning("Please pick a choice before submitting.");
+      return;
+    }
+    setSelectionWarning(null);
     const isCorrect = selected === q.mcq.correct_choice_index;
     setStatus(isCorrect ? "correct" : "incorrect");
 
@@ -256,7 +263,12 @@ function McqContent() {
                 <li
                   key={idx}
                   className={choiceClass(idx)}
-                  onClick={() => status === "idle" && setSelected(idx)}
+                  onClick={() => {
+                    if (status === "idle") {
+                      setSelected(idx);
+                      setSelectionWarning(null);
+                    }
+                  }}
                   style={{ 
                     cursor: status === "idle" ? "pointer" : "default",
                     fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
@@ -268,10 +280,15 @@ function McqContent() {
                 </li>
               ))}
             </ul>
+            {selectionWarning && (
+              <p className="muted" style={{ color: "#f87171", marginTop: 12, marginBottom: 16 }}>
+                {selectionWarning}
+              </p>
+            )}
             <div className="row" style={{ gap: 8, marginTop: 12 }}>
               <button
                 className="btn primary"
-                disabled={selected == null || status !== "idle" || savingAttempt}
+                disabled={status !== "idle" || savingAttempt}
                 onClick={() => void submit()}
               >
                 {savingAttempt ? "Saving…" : "Submit"}

@@ -25,6 +25,8 @@ pnpm-debug.log*
 Enhancements Plan.md
 work-tracker.md
 BUGS.md
+agentforce-question-bank.md
 
 # Database migrations
 supabase/migrate_sub_topic_to_category.sql
+supabase/insert_questions.sql
