@@ -45,6 +45,9 @@ function Content({ ctx: _ctx }: ContentProps) {
   const [questionNumberSearch, setQuestionNumberSearch] = useState<number[] | null>(null);
   const [questionNumberError, setQuestionNumberError] = useState<string | null>(null);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [expandedDuplicateKeys, setExpandedDuplicateKeys] = useState<string[]>([]);
+  const [duplicateItems, setDuplicateItems] = useState<Question[] | null>(null);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
   const questionNumberSearchActive = (questionNumberSearch?.length ?? 0) > 0;
 
   const loadTopics = useCallback(async () => {
@@ -87,6 +90,26 @@ function Content({ ctx: _ctx }: ContentProps) {
     void loadItems();
   }, [loadItems]);
 
+  const loadDuplicateItems = useCallback(async () => {
+    setDuplicateLoading(true);
+    const { data, error } = await supabase
+      .from("questions")
+      .select("*, multiple_choice_questions(*)")
+      .order("question_number", { ascending: true })
+      .limit(1000);
+    if (!error) {
+      const rows = (data as RawQuestion[] | null) ?? [];
+      setDuplicateItems(rows.map((row) => normalizeQuestion(row)));
+    }
+    setDuplicateLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (showDuplicates) {
+      void loadDuplicateItems();
+    }
+  }, [loadDuplicateItems, showDuplicates]);
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const matchesTopic = questionNumberSearchActive ? true : topicFilter ? item.topic === topicFilter : true;
@@ -96,27 +119,55 @@ function Content({ ctx: _ctx }: ContentProps) {
   }, [difficultyFilter, items, questionNumberSearchActive, topicFilter]);
 
   const duplicateGroups = useMemo(() => {
-    const map = new Map<string, { text: string; items: Question[] }>();
-    items.forEach((item) => {
+    if (!showDuplicates) return [];
+    const source = duplicateItems ?? [];
+    const map = new Map<string, { key: string; text: string; items: Question[] }>();
+    source.forEach((item) => {
       const text = item.question_text?.trim();
       if (!text) return;
       const key = text.toLowerCase();
       if (!map.has(key)) {
-        map.set(key, { text, items: [] });
+        map.set(key, { key, text, items: [] });
       }
       map.get(key)!.items.push(item);
     });
     return Array.from(map.values()).filter((group) => group.items.length > 1);
-  }, [items]);
+  }, [duplicateItems, showDuplicates]);
+
+  useEffect(() => {
+    if (!showDuplicates && expandedDuplicateKeys.length > 0) {
+      setExpandedDuplicateKeys([]);
+    }
+  }, [expandedDuplicateKeys.length, showDuplicates]);
+
+  const toggleDuplicateGroup = useCallback((key: string) => {
+    setExpandedDuplicateKeys((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
+  }, []);
+
+  const syncUpdatedQuestion = useCallback((updated: Question) => {
+    setItems((arr) => arr.map((item) => (item.id === updated.id ? updated : item)));
+    setDuplicateItems((arr) => (arr ? arr.map((item) => (item.id === updated.id ? updated : item)) : arr));
+  }, []);
+
+  const syncDeletedQuestion = useCallback((id: string) => {
+    setItems((arr) => arr.filter((item) => item.id !== id));
+    setDuplicateItems((arr) => (arr ? arr.filter((item) => item.id !== id) : arr));
+  }, []);
+
+  const handleQuestionSaved = useCallback((updated: Question) => {
+    syncUpdatedQuestion(updated);
+    setEditId(null);
+    void loadTopics();
+  }, [loadTopics, syncUpdatedQuestion]);
 
   const onDelete = useCallback(async (id: string) => {
     if (!confirm("Delete this question?")) return;
     const { error } = await supabase.from("questions").delete().eq("id", id);
     if (!error) {
-      setItems((arr) => arr.filter((item) => item.id !== id));
+      syncDeletedQuestion(id);
       if (editId === id) setEditId(null);
     }
-  }, [editId]);
+  }, [editId, syncDeletedQuestion]);
 
   const onSearchByQuestionNumber = useCallback(() => {
     const parsed = parseQuestionNumbers(questionNumberInput);
@@ -203,7 +254,14 @@ function Content({ ctx: _ctx }: ContentProps) {
               </p>
             )}
           </div>
-          <button className="btn" onClick={() => void loadItems()} disabled={loading}>
+          <button
+            className="btn"
+            onClick={() => {
+              void loadItems();
+              if (showDuplicates) void loadDuplicateItems();
+            }}
+            disabled={loading}
+          >
             {loading ? "Loading…" : "Refresh"}
           </button>
           <button
@@ -221,25 +279,81 @@ function Content({ ctx: _ctx }: ContentProps) {
         <div className="card">
           <h3 className="title">Duplicate Questions</h3>
           <p className="muted" style={{ marginTop: 4 }}>
-            Showing questions with identical text within the {items.length} records currently loaded.
+            Showing questions with identical text within the {duplicateItems?.length ?? 0} records currently loaded for
+            duplicate analysis.
           </p>
           <div style={{ marginTop: 12 }}>
-            {duplicateGroups.length === 0 ? (
+            {duplicateLoading ? (
+              <p className="muted">Loading duplicate data…</p>
+            ) : duplicateGroups.length === 0 ? (
               <p className="muted">No duplicate questions found.</p>
             ) : (
               <ul className="clean">
-                {duplicateGroups.map((group) => (
-                  <li key={group.items.map((item) => item.id).join("-")}>
-                    <strong>{group.text}</strong>
-                    <div className="row" style={{ flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                      {group.items.map((duplicate) => (
-                        <span className="pill" key={duplicate.id}>
-                          {typeof duplicate.question_number === "number" ? `#${duplicate.question_number}` : "No #"}
+                {duplicateGroups.map((group) => {
+                  const isExpanded = expandedDuplicateKeys.includes(group.key);
+                  return (
+                    <li key={group.key}>
+                      <button
+                        type="button"
+                        className="row"
+                        style={{ width: "100%", justifyContent: "space-between", gap: 12, textAlign: "left" }}
+                        onClick={() => toggleDuplicateGroup(group.key)}
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="col" style={{ flex: 1 }}>
+                          <strong>{group.text}</strong>
+                          <div className="row" style={{ flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                            {group.items.map((duplicate) => (
+                              <span className="pill" key={duplicate.id}>
+                                {typeof duplicate.question_number === "number" ? `#${duplicate.question_number}` : "No #"}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <span className="pill" style={{ whiteSpace: "nowrap" }}>
+                          {group.items.length} duplicate{group.items.length > 2 ? "s" : ""}
                         </span>
-                      ))}
-                    </div>
-                  </li>
-                ))}
+                        <span aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+                      </button>
+                      {isExpanded && (
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(0,0,0,0.1)" }}>
+                          {group.items.map((duplicate) => (
+                            <div key={duplicate.id} style={{ marginBottom: 16 }}>
+                              <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+                                <div className="col" style={{ flex: 1 }}>
+                                  <div className="row" style={{ gap: 8 }}>
+                                    {typeof duplicate.question_number === "number" && (
+                                      <span className="pill">#{duplicate.question_number}</span>
+                                    )}
+                                    <span className="pill">{duplicate.topic}</span>
+                                    <span className="pill">{duplicate.difficulty}</span>
+                                  </div>
+                                  <strong style={{ marginTop: 6 }}>{duplicate.question_text}</strong>
+                                </div>
+                                <div className="row" style={{ gap: 8 }}>
+                                  <button className="btn" onClick={() => setEditId((id) => (id === duplicate.id ? null : duplicate.id))}>
+                                    {editId === duplicate.id ? "Close" : "Edit"}
+                                  </button>
+                                  <button className="btn danger" onClick={() => void onDelete(duplicate.id)}>Delete</button>
+                                </div>
+                              </div>
+                              {editId === duplicate.id && (
+                                <div style={{ marginTop: 10 }}>
+                                  <QuestionForm
+                                    initial={duplicate}
+                                    topics={topics}
+                                    onCancel={() => setEditId(null)}
+                                    onSaved={handleQuestionSaved}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -280,11 +394,7 @@ function Content({ ctx: _ctx }: ContentProps) {
                           initial={question}
                           topics={topics}
                           onCancel={() => setEditId(null)}
-                          onSaved={(updated) => {
-                            setItems((arr) => arr.map((item) => (item.id === updated.id ? updated : item)));
-                            setEditId(null);
-                            void loadTopics();
-                          }}
+                          onSaved={handleQuestionSaved}
                         />
                       </div>
                     )}
