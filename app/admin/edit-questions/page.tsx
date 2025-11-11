@@ -295,31 +295,32 @@ function Content({ ctx: _ctx }: ContentProps) {
                     <li key={group.key}>
                       <button
                         type="button"
-                        className="row"
-                        style={{ width: "100%", justifyContent: "space-between", gap: 12, textAlign: "left" }}
+                        className="duplicate-group-toggle"
                         onClick={() => toggleDuplicateGroup(group.key)}
                         aria-expanded={isExpanded}
                       >
-                        <div className="col" style={{ flex: 1 }}>
+                        <div className="duplicate-group-main">
                           <strong>{group.text}</strong>
-                          <div className="row" style={{ flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                          <div className="duplicate-group-tags">
                             {group.items.map((duplicate) => (
-                              <span className="pill" key={duplicate.id}>
+                              <span className="pill pill-soft" key={duplicate.id}>
                                 {typeof duplicate.question_number === "number" ? `#${duplicate.question_number}` : "No #"}
                               </span>
                             ))}
                           </div>
                         </div>
-                        <span className="pill" style={{ whiteSpace: "nowrap" }}>
-                          {group.items.length} duplicate{group.items.length > 2 ? "s" : ""}
-                        </span>
-                        <span aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+                        <div className="duplicate-group-meta">
+                          <span className="pill pill-soft" style={{ whiteSpace: "nowrap" }}>
+                            {group.items.length} duplicate{group.items.length > 1 ? "s" : ""}
+                          </span>
+                          <span className="duplicate-group-chevron" aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+                        </div>
                       </button>
                       {isExpanded && (
-                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(0,0,0,0.1)" }}>
+                        <div className="duplicate-group-panel">
                           {group.items.map((duplicate) => (
-                            <div key={duplicate.id} style={{ marginBottom: 16 }}>
-                              <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+                            <div key={duplicate.id} className="duplicate-entry">
+                              <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
                                 <div className="col" style={{ flex: 1 }}>
                                   <div className="row" style={{ gap: 8 }}>
                                     {typeof duplicate.question_number === "number" && (
