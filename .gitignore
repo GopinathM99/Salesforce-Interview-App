@@ -26,6 +26,7 @@ Enhancements Plan.md
 work-tracker.md
 BUGS.md
 agentforce-question-bank.md
+SUPABASE_KEEP_ALIVE.md
 
 # Database migrations
 supabase/migrate_sub_topic_to_category.sql
