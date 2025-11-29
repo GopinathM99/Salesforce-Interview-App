@@ -14,6 +14,8 @@
 - Copy `.env.local.example` to `.env.local` and set:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (required for Gemini rate limiting)
+  - `GEMINI_API_KEY` (optional, only if using Gemini question generation)
 - Install dependencies and run locally:
   - `npm install`
   - `npm run dev`
@@ -40,6 +42,23 @@ Open http://localhost:3000 to use the app.
 - Use the “Admin Users” card on `/admin` to add or remove additional admins by entering their first name, last name, and login email.
 - Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
+
+**Gemini AI Question Generation**
+
+The app includes optional AI-powered question generation using Google's Gemini 2.5 Pro model:
+
+- **Setup**: Add `GEMINI_API_KEY` to your `.env.local` file (get from Google AI Studio)
+- **Rate Limiting**: Global limit of 100 API calls per day across all users (admin users bypass this limit)
+- **Access**: Visit `/add-questions` to use the AI question builder
+- **Features**: Generate questions with customizable topics, difficulty levels, question counts, and types
+- **Admin Integration**: Generated SQL INSERT statements can be executed directly by admin users
+- **Usage Tracking**: All API calls are logged in `gemini_usage_logs` table with timestamps
+
+**Technical Details:**
+- API endpoint: `POST /api/gemini` (requires authentication)
+- Model: `gemini-2.5-pro` with streaming responses
+- Global rate limit enforced via service role queries to bypass RLS
+- Requires `SUPABASE_SERVICE_ROLE_KEY` for global usage counting
 
 **Database Design**
 
@@ -123,6 +142,60 @@ The application includes a comprehensive email delivery system for sending daily
 - `subscription_preferences`: User subscription settings and preferences
 - `email_delivery_logs`: Track email delivery attempts and status
 - `unsubscribe_tokens`: Secure tokens for unsubscribe functionality
+
+**Troubleshooting**
+
+**Dev Server Crashes / "Cannot find module" Errors**
+
+If you encounter webpack module errors like `Cannot find module './276.js'` during development:
+
+**Quick Fix:**
+```bash
+# Stop the dev server (Ctrl+C), then run:
+rm -rf .next && npm run dev
+
+# Wait 10-30 seconds for initial compilation
+# You may see "missing required error components, refreshing..." - this is normal
+# The page will auto-refresh once compilation completes
+```
+
+**Why This Happens:**
+- This is a Next.js hot-reloading issue in development mode
+- Webpack caches modules and sometimes references chunks that no longer exist
+- Common when making frequent code changes
+
+**Helper Scripts:**
+The following scripts are available in `package.json`:
+
+```bash
+npm run dev:clean  # Clean cache and restart dev server
+npm run dev:stop   # Stop any process running on port 3000
+```
+
+**Manual Commands:**
+```bash
+# Stop port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Or kill by process name
+pkill -f "next dev"
+```
+
+**What to Look For:**
+In your terminal, wait for these messages:
+```
+✓ Compiled successfully
+✓ Ready in X.Xs
+Local: http://localhost:3000
+```
+
+Once you see these, refresh your browser and the app will work normally.
+
+**Important Notes:**
+- This only affects development mode (`npm run dev`)
+- Production builds are not affected (`npm run build` + `npm start`)
+- The app frontend has error handling to prevent page crashes when API calls fail
+- The "missing required error components" message is expected and will resolve automatically
 
 **Notes**
 
