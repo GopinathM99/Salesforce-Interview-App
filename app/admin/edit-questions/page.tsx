@@ -279,8 +279,7 @@ function Content({ ctx: _ctx }: ContentProps) {
         <div className="card">
           <h3 className="title">Duplicate Questions</h3>
           <p className="muted" style={{ marginTop: 4 }}>
-            Showing questions with identical text within the {duplicateItems?.length ?? 0} records currently loaded for
-            duplicate analysis.
+            Found {duplicateGroups.length} duplicate group{duplicateGroups.length !== 1 ? "s" : ""} ({duplicateGroups.reduce((sum, g) => sum + g.items.length, 0)} questions total) out of {duplicateItems?.length ?? 0} total records.
           </p>
           <div style={{ marginTop: 12 }}>
             {duplicateLoading ? (
