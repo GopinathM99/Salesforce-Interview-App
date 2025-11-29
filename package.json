@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "rm -rf .next && next dev",
+    "dev:stop": "lsof -ti:3000 | xargs kill -9 || echo 'Port 3000 already free'",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

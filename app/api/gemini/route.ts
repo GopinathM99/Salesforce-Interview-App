@@ -7,8 +7,9 @@ type ClientMessage = {
   content: string;
 };
 
-const MODEL_ID = "gemini-2.5-pro";
-const DAILY_LIMIT = 3;
+const DEFAULT_MODEL_ID = "gemini-2.5-pro";
+const FLASH_MODEL_ID = "gemini-2.5-flash";
+const DAILY_LIMIT = 100; // Global daily limit across all users
 
 const getTodayRange = () => {
   const start = new Date();
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
       return NextResponse.json(
         { error: "Missing Supabase configuration." },
         { status: 500 }
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json()) as { messages?: ClientMessage[] };
+    const body = (await request.json()) as { messages?: ClientMessage[]; model?: string };
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       return NextResponse.json(
         { error: "Request must include a non-empty messages array." },
@@ -86,10 +88,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Skip daily limit check for admin users
+    // Determine which model to use
+    const modelId = body.model === "flash" ? FLASH_MODEL_ID : DEFAULT_MODEL_ID;
+
+    // Log which model is being called
+    console.log(`[Gemini API] User ${user.id} requesting model: ${modelId}`);
+
+    // Check global daily limit (applies to all users, but admins can bypass)
     if (!isAdmin) {
+      // Use service role to count ALL usage logs (bypass RLS)
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
       const { start, end } = getTodayRange();
-      const { count, error: usageError } = await supabase
+      const { count, error: usageError } = await supabaseAdmin
         .from("gemini_usage_logs")
         .select("id", { count: "exact", head: true })
         .gte("used_at", start)
@@ -103,11 +113,32 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if ((count ?? 0) >= DAILY_LIMIT) {
+      const currentCount = count ?? 0;
+
+      // Get breakdown by model for logging
+      const { data: modelBreakdown } = await supabaseAdmin
+        .from("gemini_usage_logs")
+        .select("model")
+        .gte("used_at", start)
+        .lt("used_at", end);
+
+      const breakdownMap = (modelBreakdown ?? []).reduce((acc, { model }) => {
+        acc[model] = (acc[model] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const breakdownStr = Object.entries(breakdownMap)
+        .map(([model, count]) => `${model}: ${count}`)
+        .join(", ");
+
+      console.log(`[Gemini API] Daily usage: ${currentCount}/${DAILY_LIMIT} total calls | Breakdown: ${breakdownStr || "none"} | Requesting: ${modelId}`);
+
+      if (currentCount >= DAILY_LIMIT) {
+        console.warn(`[Gemini API] Daily limit reached: ${currentCount}/${DAILY_LIMIT}`);
         return NextResponse.json(
           {
             error:
-              "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
+              `Global daily limit of ${DAILY_LIMIT} API calls has been reached. Please try again tomorrow.`
           },
           { status: 429 }
         );
@@ -116,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     const { error: logError } = await supabase
       .from("gemini_usage_logs")
-      .insert({ user_id: user.id });
+      .insert({ user_id: user.id, model: modelId });
 
     if (logError) {
       console.error("Failed to log Gemini usage", logError);
@@ -126,13 +157,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`[Gemini API] Successfully logged usage for model: ${modelId}`);
+
     const messages = body.messages.map((message) => ({
       role: mapRole(message.role),
       parts: [{ text: message.content.trim() }]
     }));
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_ID });
+    const model = genAI.getGenerativeModel({ model: modelId });
 
     const result = await model.generateContentStream({ contents: messages });
     const encoder = new TextEncoder();

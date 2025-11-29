@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { supabase } from "@/lib/supabaseClient";
 import type { Difficulty, Question, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
@@ -15,7 +16,7 @@ type Filters = {
 };
 
 function McqContent() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const searchParams = useSearchParams();
   const categoryFromUrl = searchParams.get("category");
   const userId = user?.id ?? null;
@@ -34,6 +35,13 @@ function McqContent() {
   const [savingAttempt, setSavingAttempt] = useState(false);
   const [attemptError, setAttemptError] = useState<string | null>(null);
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
+  const [showAskAI, setShowAskAI] = useState(false);
+  const [userQuestion, setUserQuestion] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const [askingAI, setAskingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [sentPrompt, setSentPrompt] = useState<string>("");
+  const [showPrompt, setShowPrompt] = useState(false);
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -43,6 +51,12 @@ function McqContent() {
     setStatus("idle");
     setAttemptError(null);
     setSelectionWarning(null);
+    setShowAskAI(false);
+    setUserQuestion("");
+    setAiResponse("");
+    setAiError(null);
+    setSentPrompt("");
+    setShowPrompt(false);
     
     // Build the RPC payload - always include all parameters in correct order
     const payload = {
@@ -152,6 +166,148 @@ function McqContent() {
       setAttemptError(error.message);
     }
     setSavingAttempt(false);
+  };
+
+  const askAI = async () => {
+    try {
+      if (!q || !q.mcq || !userQuestion.trim()) {
+        setAiError("Please enter a question.");
+        return;
+      }
+
+      if (!session || !session.access_token) {
+        setAiError("Please sign in to use the Ask AI feature.");
+        return;
+      }
+
+      setAskingAI(true);
+      setAiError(null);
+      setAiResponse("");
+      setSentPrompt("");
+      setShowPrompt(false);
+
+      // Wrap everything in try-catch to prevent page crashes
+      try {
+        // Build context message with question details combined with user's question
+        const fullMessage = `Salesforce${q.category ? ` - ${q.category}` : ''} MCQ question and answer with a follow up user question:
+
+Question: ${q.question_text}
+
+Choices:
+${q.mcq.choices.map((choice, idx) => `${idx + 1}. ${choice}`).join('\n')}
+
+Correct Answer: ${q.mcq.choices[q.mcq.correct_choice_index]}
+
+${q.mcq.explanation ? `Explanation: ${q.mcq.explanation}` : ''}
+
+User's question related to Salesforce${q.category ? ` - ${q.category}` : ''}: ${userQuestion}
+
+Please answer the user's question clearly and concisely.`;
+
+        // Save the prompt to display to the user
+        setSentPrompt(fullMessage);
+
+        const response = await fetch("/api/gemini", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: "user", content: fullMessage }
+            ],
+            model: "flash"
+          })
+        }).catch(() => {
+          throw new Error("Network error. Please check your connection and try again.");
+        });
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        let errorMessage = "Something went wrong. Please try again.";
+
+        try {
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          }
+        } catch {
+          // If we can't parse the error, use a generic message
+        }
+
+        // Simplify common error messages for users
+        if (response.status === 401) {
+          errorMessage = "Please sign in again to continue.";
+        } else if (response.status === 429) {
+          errorMessage = "Daily limit reached. Please try again tomorrow.";
+        } else if (response.status >= 500) {
+          errorMessage = "Server error. Please try again in a moment.";
+        }
+
+        setAiError(errorMessage);
+        setAskingAI(false);
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setAiError("Unable to receive response. Please try again.");
+        setAskingAI(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim() || !line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.error) {
+                setAiError(parsed.error);
+                setAskingAI(false);
+                return;
+              }
+              if (parsed.text) {
+                setAiResponse((prev) => prev + parsed.text);
+              }
+            } catch {
+              // Skip invalid JSON chunks
+            }
+          }
+        }
+        } catch {
+          setAiError("Connection interrupted. Please try again.");
+          setAskingAI(false);
+          return;
+        }
+      } catch (innerError) {
+        console.error("Ask AI inner error:", innerError);
+        const errorMsg = innerError instanceof Error ? innerError.message : "Something went wrong. Please try again.";
+        setAiError(errorMsg);
+        setAskingAI(false);
+      }
+    } catch (error) {
+      // Outer catch to prevent any uncaught errors from breaking the page
+      console.error("Ask AI outer error:", error);
+      setAiError("An unexpected error occurred. Please try again.");
+      setAskingAI(false);
+    } finally {
+      setAskingAI(false);
+    }
   };
 
   const choiceClass = (idx: number) => {
@@ -285,17 +441,32 @@ function McqContent() {
                 {selectionWarning}
               </p>
             )}
-            <div className="row" style={{ gap: 8, marginTop: 12 }}>
-              <button
-                className="btn primary"
-                disabled={status !== "idle" || savingAttempt}
-                onClick={() => void submit()}
-              >
-                {savingAttempt ? "Saving…" : "Submit"}
-              </button>
-              <button className="btn" onClick={() => void loadRandom()} disabled={loading}>
-                {loading ? "Loading…" : "Next Random"}
-              </button>
+            <div className="row" style={{ gap: 8, marginTop: 12, justifyContent: "space-between" }}>
+              <div className="row" style={{ gap: 8 }}>
+                <button
+                  className="btn primary"
+                  disabled={status !== "idle" || savingAttempt}
+                  onClick={() => void submit()}
+                >
+                  {savingAttempt ? "Saving…" : "Submit"}
+                </button>
+                <button className="btn" onClick={() => void loadRandom()} disabled={loading}>
+                  {loading ? "Loading…" : "Next Random"}
+                </button>
+              </div>
+              {q.mcq && !showAskAI && (
+                <button
+                  className="btn"
+                  onClick={() => setShowAskAI(true)}
+                  style={{
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    border: "none"
+                  }}
+                >
+                  Ask AI
+                </button>
+              )}
             </div>
             {status !== "idle" && (
               <div style={{ marginTop: 12 }}>
@@ -305,8 +476,8 @@ function McqContent() {
                   <>
                     <span className="pill" style={{ borderColor: "#7a1b1b" }}>Incorrect</span>
                     {(q.mcq?.explanation ?? q.answer_text) && (
-                      <p style={{ 
-                        marginTop: 10, 
+                      <p style={{
+                        marginTop: 10,
                         whiteSpace: "pre-wrap",
                         fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
                         fontSize: '16px',
@@ -315,6 +486,164 @@ function McqContent() {
                       }}>
                         <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
                       </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Ask AI Expanded Section */}
+            {q.mcq && showAskAI && (
+              <div style={{ marginTop: 16, borderTop: "1px solid #334155", paddingTop: 16 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      setShowAskAI(false);
+                      setUserQuestion("");
+                      setAiResponse("");
+                      setAiError(null);
+                      setSentPrompt("");
+                      setShowPrompt(false);
+                    }}
+                    style={{
+                      fontSize: "14px",
+                      padding: "4px 12px",
+                      minHeight: "unset"
+                    }}
+                  >
+                    Close
+                  </button>
+                  <span style={{ color: "#94a3b8", fontSize: "14px", paddingTop: 6 }}>
+                    Ask a follow-up question about this MCQ
+                  </span>
+                </div>
+
+                {!session ? (
+                  <p className="muted" style={{ fontSize: "14px" }}>
+                    Please sign in to use the Ask AI feature.
+                  </p>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <textarea
+                        value={userQuestion}
+                        onChange={(e) => setUserQuestion(e.target.value)}
+                        placeholder="e.g., Can you explain this concept in more detail?"
+                        style={{
+                          flex: 1,
+                          minHeight: "80px",
+                          padding: "8px 12px",
+                          backgroundColor: "#1e293b",
+                          border: "1px solid #334155",
+                          borderRadius: "6px",
+                          color: "#f1f5f9",
+                          fontSize: "14px",
+                          fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                          resize: "vertical"
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.ctrlKey && userQuestion.trim() && !askingAI) {
+                            void askAI();
+                          }
+                        }}
+                      />
+                      <button
+                        className="btn primary"
+                        onClick={() => void askAI()}
+                        disabled={!userQuestion.trim() || askingAI}
+                        style={{ minWidth: "80px" }}
+                      >
+                        {askingAI ? "Asking..." : "Send"}
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <p style={{ fontSize: "12px", color: "#64748b", margin: 0, flex: 1 }}>
+                        AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 2.5 Flash</span>
+                      </p>
+                      <p style={{ fontSize: "12px", color: "#64748b", margin: 0, textAlign: "center" }}>
+                        Press Ctrl+Enter to send
+                      </p>
+                      <div style={{ flex: 1 }} />
+                    </div>
+
+                    {aiError && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: "12px 16px",
+                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(239, 68, 68, 0.3)"
+                      }}>
+                        <p style={{ color: "#fca5a5", margin: 0, fontSize: "14px" }}>
+                          {aiError}
+                        </p>
+                      </div>
+                    )}
+
+                    {sentPrompt && (
+                      <>
+                        <button
+                          className="btn"
+                          onClick={() => setShowPrompt(!showPrompt)}
+                          style={{
+                            marginTop: 12,
+                            fontSize: "13px",
+                            padding: "6px 12px",
+                            backgroundColor: "rgba(59, 130, 246, 0.1)",
+                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                            color: "#60a5fa"
+                          }}
+                        >
+                          {showPrompt ? "Hide AI Request" : "Show AI Request"}
+                        </button>
+
+                        {showPrompt && (
+                          <div style={{
+                            marginTop: 8,
+                            padding: "12px 16px",
+                            backgroundColor: "rgba(59, 130, 246, 0.05)",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(59, 130, 246, 0.2)"
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                              <span style={{ fontWeight: 600, color: "#60a5fa", fontSize: "14px" }}>Context sent to AI:</span>
+                            </div>
+                            <pre style={{
+                              whiteSpace: "pre-wrap",
+                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                              fontSize: '13px',
+                              lineHeight: '1.6',
+                              color: '#94a3b8',
+                              margin: 0,
+                              overflowX: "auto"
+                            }}>
+                              {sentPrompt}
+                            </pre>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {aiResponse && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: "12px 16px",
+                        backgroundColor: "#1e293b",
+                        borderRadius: "6px",
+                        border: "1px solid #334155"
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontWeight: 600, color: "#3b82f6", fontSize: "14px" }}>AI Response:</span>
+                        </div>
+                        <div className="markdown" style={{
+                          fontSize: '15px',
+                          lineHeight: '1.7',
+                          color: '#e2e8f0'
+                        }}>
+                          <ReactMarkdown>{aiResponse}</ReactMarkdown>
+                        </div>
+                      </div>
                     )}
                   </>
                 )}
