@@ -39,6 +39,12 @@ const tiles = [
     description: "Manage email subscriptions, send test emails, and view delivery logs.",
     href: "/admin/email-management",
     cta: "Manage Emails"
+  },
+  {
+    title: "API Usage Statistics",
+    description: "View daily Gemini API usage statistics and track the global rate limit.",
+    href: "/admin/api-usage",
+    cta: "View API Usage"
   }
 ] as const;
 

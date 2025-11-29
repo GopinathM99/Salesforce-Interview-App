@@ -171,3 +171,25 @@ as $$
 $$;
 
 grant execute on function public.log_user_sign_in(text, text, text) to authenticated;
+
+-- Get daily Gemini API usage statistics for the last 30 days
+create or replace function public.get_daily_gemini_usage()
+returns table (
+  date date,
+  api_calls bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    date_trunc('day', used_at)::date as date,
+    count(*) as api_calls
+  from public.gemini_usage_logs
+  where used_at >= current_date - interval '29 days'
+  group by date_trunc('day', used_at)::date
+  order by date desc;
+$$;
+
+grant execute on function public.get_daily_gemini_usage() to authenticated;

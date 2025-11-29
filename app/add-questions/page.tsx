@@ -98,15 +98,6 @@ const introMessage: ChatMessage = {
 const DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"];
 const QUESTION_COUNTS = ["1", "2", "3", "4", "5"];
 const QUESTION_TYPES = ["Knowledge", "Scenario", "Coding"];
-const DAILY_LIMIT = 3;
-
-const getTodayRange = () => {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start: start.toISOString(), end: end.toISOString() };
-};
 
 const extractInsertStatements = (content: string): string[] => {
   const statements: string[] = [];
@@ -142,16 +133,11 @@ export default function AddQuestionsPage() {
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
   const [selectedQuestionCount, setSelectedQuestionCount] = useState<string | null>(null);
   const [selectedQuestionType, setSelectedQuestionType] = useState<string | null>(null);
-  const [attemptsToday, setAttemptsToday] = useState<number | null>(null);
-  const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [sqlStatuses, setSqlStatuses] = useState<Record<string, SqlExecutionStatus>>({});
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
-
-  const limitReached = !isAdmin && (attemptsToday ?? 0) >= DAILY_LIMIT;
-  const attemptsRemaining = Math.max(DAILY_LIMIT - (attemptsToday ?? 0), 0);
 
   const sqlStatementsByMessage = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -252,33 +238,6 @@ export default function AddQuestionsPage() {
 
   useEffect(() => {
     if (!user) {
-      setAttemptsToday(null);
-      setAttemptsLoading(false);
-      return;
-    }
-
-    const loadAttempts = async () => {
-      setAttemptsLoading(true);
-      const { start, end } = getTodayRange();
-      const { count, error } = await supabase
-        .from("gemini_usage_logs")
-        .select("id", { count: "exact", head: true })
-        .gte("used_at", start)
-        .lt("used_at", end);
-      if (error) {
-        console.error("Failed to load Gemini usage", error);
-        setAttemptsToday(0);
-      } else {
-        setAttemptsToday(count ?? 0);
-      }
-      setAttemptsLoading(false);
-    };
-
-    void loadAttempts();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) {
       setIsAdmin(false);
       setAdminCheckError(null);
       return;
@@ -376,33 +335,6 @@ export default function AddQuestionsPage() {
       return;
     }
 
-    if (attemptsLoading) {
-      setError("Checking your daily limit. Please try again in a moment.");
-      return;
-    }
-
-    const { start, end } = getTodayRange();
-    const { count: latestCount, error: countError } = await supabase
-      .from("gemini_usage_logs")
-      .select("id", { count: "exact", head: true })
-      .gte("used_at", start)
-      .lt("used_at", end);
-
-    if (countError) {
-      setError("Could not verify your remaining attempts. Please try again shortly.");
-      return;
-    }
-
-    // Skip daily limit check for admin users
-    if (!isAdmin && (latestCount ?? 0) >= DAILY_LIMIT) {
-      setAttemptsToday(latestCount ?? 0);
-      setError(
-        "Max 3 attempts have been reached. Please try again tomorrow for more questions or try Flash Cards or Multiple Choice Questions."
-      );
-      return;
-    }
-    const nextCount = (latestCount ?? 0) + 1;
-
     const promptSections: string[] = [];
     if (selectedTopics.length) {
       promptSections.push(`Focus on these Salesforce topics: ${selectedTopics.join(", ")}.`);
@@ -465,8 +397,6 @@ export default function AddQuestionsPage() {
         }
         throw new Error(detail);
       }
-
-      setAttemptsToday(nextCount);
 
       if (!response.body) {
         throw new Error("Gemini returned an empty stream.");
@@ -639,11 +569,11 @@ export default function AddQuestionsPage() {
         <p className="muted" style={{ marginTop: 8 }}>{hint}</p>
         {user && (
           <p className="muted" style={{ marginTop: 4 }}>
-            {attemptsLoading || isAdmin === null
-              ? "Checking remaining attempts…"
+            {isAdmin === null
+              ? "Verifying access…"
               : isAdmin
                 ? "Admin user - unlimited Gemini requests available."
-                : `You have ${attemptsRemaining} of ${DAILY_LIMIT} Gemini requests left today.`}
+                : "Note: There is a global limit of 100 Gemini API calls per day across all users."}
           </p>
         )}
         {!user && (
@@ -1005,7 +935,7 @@ export default function AddQuestionsPage() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Example: Draft a medium difficulty Salesforce Flow scenario question with multiple choice answers."
-              disabled={loading || limitReached || !user || attemptsLoading}
+              disabled={loading || !user}
             />
             {error && <p className="muted">Error: {error}</p>}
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -1015,13 +945,9 @@ export default function AddQuestionsPage() {
               <button
                 className="btn success"
                 type="submit"
-                disabled={loading || limitReached || !user || attemptsLoading}
+                disabled={loading || !user}
               >
-                {loading
-                  ? "Generating…"
-                  : limitReached
-                    ? "Daily Limit Reached"
-                    : "Generate with Gemini"}
+                {loading ? "Generating…" : "Generate with Gemini"}
               </button>
             </div>
           </div>
