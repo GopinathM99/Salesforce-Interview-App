@@ -158,7 +158,19 @@ begin
     join pg_namespace n on n.oid = t.typnamespace
     where t.typname = 'question_category' and n.nspname = 'public'
   ) then
-    create type public.question_category as enum ('General', 'Sales Cloud', 'Service Cloud', 'Agentforce', 'CPQ', 'Litify');
+    create type public.question_category as enum (
+      'General',
+      'Sales Cloud',
+      'Service Cloud',
+      'Agentforce',
+      'CPQ',
+      'Litify',
+      'Agentforce Concepts',
+      'Agentforce and Service Cloud',
+      'Agentforce and Data Cloud',
+      'Agentforce and Sales Cloud',
+      'Prompt Engineering'
+    );
   end if;
 end$$;
 
@@ -223,6 +235,51 @@ begin
       where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Litify'
     ) then
       alter type public.question_category add value 'Litify';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Agentforce Concepts'
+    ) then
+      alter type public.question_category add value 'Agentforce Concepts';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Agentforce and Service Cloud'
+    ) then
+      alter type public.question_category add value 'Agentforce and Service Cloud';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Agentforce and Data Cloud'
+    ) then
+      alter type public.question_category add value 'Agentforce and Data Cloud';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Agentforce and Sales Cloud'
+    ) then
+      alter type public.question_category add value 'Agentforce and Sales Cloud';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Prompt Engineering'
+    ) then
+      alter type public.question_category add value 'Prompt Engineering';
     end if;
   end if;
 end$$;
@@ -299,7 +356,19 @@ begin
     update public.questions
     set category = 'General'
     where category is not null
-      and category not in ('General', 'Sales Cloud', 'Service Cloud', 'Agentforce', 'CPQ', 'Litify');
+      and category not in (
+        'General',
+        'Sales Cloud',
+        'Service Cloud',
+        'Agentforce',
+        'CPQ',
+        'Litify',
+        'Agentforce Concepts',
+        'Agentforce and Service Cloud',
+        'Agentforce and Data Cloud',
+        'Agentforce and Sales Cloud',
+        'Prompt Engineering'
+      );
 
     -- Add temporary column with enum type
     alter table public.questions
@@ -314,6 +383,11 @@ begin
       when category = 'Agentforce' then 'Agentforce'::public.question_category
       when category = 'CPQ' then 'CPQ'::public.question_category
       when category = 'Litify' then 'Litify'::public.question_category
+      when category = 'Agentforce Concepts' then 'Agentforce Concepts'::public.question_category
+      when category = 'Agentforce and Service Cloud' then 'Agentforce and Service Cloud'::public.question_category
+      when category = 'Agentforce and Data Cloud' then 'Agentforce and Data Cloud'::public.question_category
+      when category = 'Agentforce and Sales Cloud' then 'Agentforce and Sales Cloud'::public.question_category
+      when category = 'Prompt Engineering' then 'Prompt Engineering'::public.question_category
       else 'General'::public.question_category
     end;
 
