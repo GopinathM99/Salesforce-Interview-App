@@ -45,6 +45,12 @@ const tiles = [
     description: "View daily Gemini API usage statistics and track the global rate limit.",
     href: "/admin/api-usage",
     cta: "View API Usage"
+  },
+  {
+    title: "Environment Variables",
+    description: "Check which environment variables are configured and which are missing.",
+    href: "/admin/env-check",
+    cta: "Check Env Vars"
   }
 ] as const;
 
