@@ -7,6 +7,8 @@ type ClientMessage = {
   content: string;
 };
 
+export const runtime = "nodejs";
+
 const DEFAULT_MODEL_ID = "gemini-2.5-pro";
 const FLASH_MODEL_ID = "gemini-2.5-flash";
 const ALLOWED_MODEL_IDS = [DEFAULT_MODEL_ID, FLASH_MODEL_ID];
@@ -30,16 +32,16 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable." },
-        { status: 500 }
-      );
-    }
+    const missingEnv = [
+      !apiKey ? "GEMINI_API_KEY" : null,
+      !supabaseUrl ? "NEXT_PUBLIC_SUPABASE_URL" : null,
+      !supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : null,
+      !supabaseServiceKey ? "SUPABASE_SERVICE_ROLE_KEY" : null
+    ].filter(Boolean) as string[];
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    if (missingEnv.length > 0) {
       return NextResponse.json(
-        { error: "Missing Supabase configuration." },
+        { error: `Missing environment variables: ${missingEnv.join(", ")}` },
         { status: 500 }
       );
     }
