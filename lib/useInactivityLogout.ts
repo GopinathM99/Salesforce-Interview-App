@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface UseInactivityLogoutOptions {
   /**
@@ -37,16 +37,16 @@ export function useInactivityLogout({
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const storageKey = userId ? `lastActivityAt:${userId}` : "lastActivityAt";
   const now = () => Date.now();
-  const readLastActivity = () => {
+  const readLastActivity = useCallback(() => {
     if (typeof window === "undefined") return null;
     const raw = window.localStorage.getItem(storageKey);
     const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
     return Number.isFinite(parsed) ? parsed : null;
-  };
-  const writeLastActivity = (ts: number) => {
+  }, [storageKey]);
+  const writeLastActivity = useCallback((ts: number) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(storageKey, String(ts));
-  };
+  }, [storageKey]);
 
   useEffect(() => {
     // Only set up inactivity tracking if user is authenticated
@@ -107,5 +107,5 @@ export function useInactivityLogout({
         document.removeEventListener(event, resetTimer);
       });
     };
-  }, [timeout, onInactive, isAuthenticated, storageKey]);
+  }, [timeout, onInactive, isAuthenticated, storageKey, readLastActivity, writeLastActivity]);
 }
