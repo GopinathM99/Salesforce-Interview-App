@@ -46,6 +46,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Narrow env types for TypeScript after validation
+    const apiKeyValue = apiKey as string;
+    const supabaseUrlValue = supabaseUrl as string;
+    const supabaseAnonKeyValue = supabaseAnonKey as string;
+    const supabaseServiceKeyValue = supabaseServiceKey as string;
+
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -56,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest) {
     // Check global daily limit (applies to all users, but admins can bypass)
     if (!isAdmin) {
       // Use service role to count ALL usage logs (bypass RLS)
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      const supabaseAdmin = createClient(supabaseUrlValue, supabaseServiceKeyValue);
       const { start, end } = getTodayRange();
       const { count, error: usageError } = await supabaseAdmin
         .from("gemini_usage_logs")
@@ -175,7 +181,7 @@ export async function POST(request: NextRequest) {
       parts: [{ text: message.content.trim() }]
     }));
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(apiKeyValue);
     const model = genAI.getGenerativeModel({ model: modelId });
 
     const result = await model.generateContentStream({ contents: messages });
