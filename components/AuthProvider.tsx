@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import { useInactivityLogout } from "@/lib/useInactivityLogout";
 
 type AuthContextValue = {
   session: Session | null;
@@ -137,6 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }, []);
+
+  // Automatically logout user after 5 minutes of inactivity
+  useInactivityLogout({
+    timeout: 300000, // 5 minutes in milliseconds
+    onInactive: () => {
+      void signOut();
+    },
+    isAuthenticated: !!session?.user,
+    userId: session?.user?.id ?? null
+  });
 
   const value = useMemo<AuthContextValue>(
     () => ({
