@@ -7,6 +7,8 @@ type ClientMessage = {
   content: string;
 };
 
+export const runtime = "nodejs";
+
 const DEFAULT_MODEL_ID = "gemini-2.5-pro";
 const FLASH_MODEL_ID = "gemini-2.5-flash";
 const ALLOWED_MODEL_IDS = [DEFAULT_MODEL_ID, FLASH_MODEL_ID];
@@ -30,19 +32,25 @@ export async function POST(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!apiKey) {
+    const missingEnv = [
+      !apiKey ? "GEMINI_API_KEY" : null,
+      !supabaseUrl ? "NEXT_PUBLIC_SUPABASE_URL" : null,
+      !supabaseAnonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : null,
+      !supabaseServiceKey ? "SUPABASE_SERVICE_ROLE_KEY" : null
+    ].filter(Boolean) as string[];
+
+    if (missingEnv.length > 0) {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable." },
+        { error: `Missing environment variables: ${missingEnv.join(", ")}` },
         { status: 500 }
       );
     }
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-      return NextResponse.json(
-        { error: "Missing Supabase configuration." },
-        { status: 500 }
-      );
-    }
+    // Narrow env types for TypeScript after validation
+    const apiKeyValue = apiKey as string;
+    const supabaseUrlValue = supabaseUrl as string;
+    const supabaseAnonKeyValue = supabaseAnonKey as string;
+    const supabaseServiceKeyValue = supabaseServiceKey as string;
 
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -106,7 +114,7 @@ export async function POST(request: NextRequest) {
     // Check global daily limit (applies to all users, but admins can bypass)
     if (!isAdmin) {
       // Use service role to count ALL usage logs (bypass RLS)
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      const supabaseAdmin = createClient(supabaseUrlValue, supabaseServiceKeyValue);
       const { start, end } = getTodayRange();
       const { count, error: usageError } = await supabaseAdmin
         .from("gemini_usage_logs")
@@ -173,7 +181,7 @@ export async function POST(request: NextRequest) {
       parts: [{ text: message.content.trim() }]
     }));
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(apiKeyValue);
     const model = genAI.getGenerativeModel({ model: modelId });
 
     const result = await model.generateContentStream({ contents: messages });
