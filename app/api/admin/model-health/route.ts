@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(apiKey!);
 
     const results: ModelCheckResult[] = await Promise.all(
       MODEL_TARGETS.map(async ({ id, label }) => {
