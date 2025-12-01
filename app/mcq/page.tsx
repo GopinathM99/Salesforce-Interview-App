@@ -200,9 +200,9 @@ Correct Answer: ${q.mcq.choices[q.mcq.correct_choice_index]}
 
 ${q.mcq.explanation ? `Explanation: ${q.mcq.explanation}` : ''}
 
-User's question related to Salesforce${q.category ? ` - ${q.category}` : ''}: ${userQuestion}
+User's question related to above Salesforce${q.category ? ` - ${q.category}` : ''} MCQ question: ${userQuestion}
 
-Please answer the user's question clearly and concisely.`;
+Please answer the user's question clearly and concisely, ideally within one or two paragraphs.`;
 
         // Save the prompt to display to the user
         setSentPrompt(fullMessage);

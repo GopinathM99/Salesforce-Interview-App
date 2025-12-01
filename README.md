@@ -32,6 +32,19 @@ Open http://localhost:3000 to use the app.
 - No additional environment variables are required. Once enabled, the header shows a "Sign in with Google" button while still allowing anonymous use.
 - Signing in stores the Supabase session locally and lets you personalize future features without blocking existing workflows.
 
+**Automatic Inactivity Logout**
+
+The app includes automatic logout functionality to enhance security for authenticated users:
+
+- **Inactivity Timeout**: Users are automatically logged out after 5 minutes of inactivity
+- **Activity Tracking**: Monitors mouse movements, keyboard input, clicks, touches, and scrolls
+- **Automatic Reset**: Any user interaction resets the inactivity timer
+- **Authenticated Users Only**: Tracking only occurs when a user is signed in
+- **Configuration**: The timeout duration can be adjusted in `components/AuthProvider.tsx` (line 144)
+- **Implementation**: Uses a custom React hook (`lib/useInactivityLogout.ts`) that integrates with the existing authentication system
+
+This feature helps protect user accounts by automatically ending sessions when devices are left unattended.
+
 **Admin (Create/Edit/Delete)**
 
 - Enable Email/Password in Supabase Authentication.
