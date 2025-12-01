@@ -51,6 +51,12 @@ export function useInactivityLogout({
   useEffect(() => {
     // Only set up inactivity tracking if user is authenticated
     if (!isAuthenticated) {
+      // Clear any persisted inactivity markers so the next sign-in starts fresh
+      if (typeof window !== "undefined") {
+        Object.keys(window.localStorage)
+          .filter((key) => key.startsWith("lastActivityAt"))
+          .forEach((key) => window.localStorage.removeItem(key));
+      }
       return;
     }
 
