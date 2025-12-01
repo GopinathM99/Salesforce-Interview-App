@@ -47,6 +47,12 @@ export default function ApiUsagePage() {
   const [healthOk, setHealthOk] = useState<boolean | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatModel, setChatModel] = useState<string>("gemini-2.5-pro");
+  const [chatPrompt, setChatPrompt] = useState("");
+  const [chatResponse, setChatResponse] = useState("");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; x: number; y: number }>(
@@ -167,6 +173,121 @@ export default function ApiUsagePage() {
     }
   };
 
+  useEffect(() => {
+    if (models.length > 0) {
+      setChatModel(models[0]);
+    }
+  }, [models]);
+
+  const handleChatSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!chatPrompt.trim()) {
+      setChatError("Enter a prompt to send to the model.");
+      return;
+    }
+
+    setChatLoading(true);
+    setChatError(null);
+    setChatResponse("");
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Missing Supabase session. Please sign in again.");
+      }
+
+      const response = await fetch("/api/gemini", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: chatPrompt.trim() }],
+          model: chatModel
+        })
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        let errorMessage = "Failed to send prompt.";
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const payload = await response.json();
+            errorMessage = payload?.error || errorMessage;
+          } catch {
+            // ignore parse errors
+          }
+        }
+        setChatError(errorMessage);
+        setChatLoading(false);
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setChatError("No response stream received.");
+        setChatLoading(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim() || !line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              setChatError(parsed.error);
+              setChatLoading(false);
+              return;
+            }
+            if (parsed.text) {
+              setChatResponse((prev) => prev + parsed.text);
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error while sending prompt.";
+      setChatError(message);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const chatModels =
+    healthResults.length > 0
+      ? healthResults.map((result) => ({
+          value: result.model,
+          label: result.label ?? formatModelLabel(result.model)
+        }))
+      : models.map((model) => ({
+          value: model,
+          label: formatModelLabel(model)
+        }));
+
+  if (chatModels.length === 0) {
+    chatModels.push(
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }
+    );
+  }
+
   return (
     <AdminAccessShell>
       {() => (
@@ -193,7 +314,7 @@ export default function ApiUsagePage() {
                 style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
               >
                 <div>
-                  <h3 style={{ marginBottom: 4 }}>AI Model API Health</h3>
+                  <h3 style={{ marginBottom: 4 }}>AI Models API Health</h3>
                   <p className="muted" style={{ margin: 0 }}>
                     Verify we can reach every configured model endpoint before relying on them.
                   </p>
@@ -221,6 +342,13 @@ export default function ApiUsagePage() {
                     disabled={healthLoading}
                   >
                     {healthLoading ? "Checking..." : "Run Health Check"}
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ whiteSpace: "nowrap" }}
+                    onClick={() => setChatOpen((prev) => !prev)}
+                  >
+                    AI Chat
                   </button>
                 </div>
               </div>
@@ -291,6 +419,101 @@ export default function ApiUsagePage() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {chatOpen && (
+                <div className="card" style={{ marginTop: 12, background: "rgba(255,255,255,0.02)" }}>
+                  <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <h4 style={{ margin: 0 }}>AI Chat</h4>
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      Send a quick prompt to any available model.
+                    </span>
+                  </div>
+                  <form onSubmit={handleChatSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Model
+                      </span>
+                      <select
+                        value={chatModel}
+                        onChange={(event) => setChatModel(event.target.value)}
+                        disabled={chatLoading}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: "1px solid #233453",
+                          background: "#0f172a",
+                          color: "#e2e8f0"
+                        }}
+                      >
+                        {chatModels.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Prompt
+                      </span>
+                      <textarea
+                        rows={4}
+                        value={chatPrompt}
+                        onChange={(event) => setChatPrompt(event.target.value)}
+                        placeholder="Ask the selected model anything..."
+                        disabled={chatLoading}
+                        style={{
+                          borderRadius: 10,
+                          border: "1px solid #233453",
+                          padding: "10px 12px",
+                          background: "#0f172a",
+                          color: "#e2e8f0"
+                        }}
+                      />
+                    </label>
+
+                    {chatError && (
+                      <p style={{ color: "var(--error)", margin: 0 }}>
+                        {chatError}
+                      </p>
+                    )}
+
+                    {chatResponse && (
+                      <div
+                        style={{
+                          border: "1px solid #233453",
+                          borderRadius: 10,
+                          padding: "12px 14px",
+                          background: "#0b1222",
+                          color: "#e2e8f0",
+                          whiteSpace: "pre-wrap"
+                        }}
+                      >
+                        {chatResponse}
+                      </div>
+                    )}
+
+                    <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setChatPrompt("");
+                          setChatResponse("");
+                          setChatError(null);
+                        }}
+                        disabled={chatLoading}
+                      >
+                        Reset
+                      </button>
+                      <button className="btn primary" type="submit" disabled={chatLoading}>
+                        {chatLoading ? "Sending..." : "Send"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </div>

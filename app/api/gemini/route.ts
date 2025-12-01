@@ -9,6 +9,7 @@ type ClientMessage = {
 
 const DEFAULT_MODEL_ID = "gemini-2.5-pro";
 const FLASH_MODEL_ID = "gemini-2.5-flash";
+const ALLOWED_MODEL_IDS = [DEFAULT_MODEL_ID, FLASH_MODEL_ID];
 const DAILY_LIMIT = 100; // Global daily limit across all users
 
 const getTodayRange = () => {
@@ -88,8 +89,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizeModelId = (model?: string) => {
+      if (!model) return DEFAULT_MODEL_ID;
+      if (model === "flash") return FLASH_MODEL_ID; // Backward compatibility
+      if (model === "default") return DEFAULT_MODEL_ID;
+      if (ALLOWED_MODEL_IDS.includes(model)) return model;
+      return DEFAULT_MODEL_ID;
+    };
+
     // Determine which model to use
-    const modelId = body.model === "flash" ? FLASH_MODEL_ID : DEFAULT_MODEL_ID;
+    const modelId = normalizeModelId(body.model);
 
     // Log which model is being called
     console.log(`[Gemini API] User ${user.id} requesting model: ${modelId}`);
