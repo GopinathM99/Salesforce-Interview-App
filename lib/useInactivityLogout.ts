@@ -34,7 +34,8 @@ export function useInactivityLogout({
   isAuthenticated,
   userId
 }: UseInactivityLogoutOptions) {
-  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityRef = useRef<number | null>(null);
   const storageKey = userId ? `lastActivityAt:${userId}` : "lastActivityAt";
   const now = () => Date.now();
   const readLastActivity = useCallback(() => {
@@ -51,6 +52,10 @@ export function useInactivityLogout({
   useEffect(() => {
     // Only set up inactivity tracking if user is authenticated
     if (!isAuthenticated) {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
       // Clear any persisted inactivity markers so the next sign-in starts fresh
       if (typeof window !== "undefined") {
         Object.keys(window.localStorage)
@@ -60,16 +65,31 @@ export function useInactivityLogout({
       return;
     }
 
-    const resetTimer = () => {
+    const scheduleTimeout = (lastActivity: number) => {
+      const elapsed = now() - lastActivity;
+
+      if (elapsed >= timeout) {
+        onInactive();
+        return;
+      }
+
       // Clear existing timeout
       if (timeoutIdRef.current) {
         clearTimeout(timeoutIdRef.current);
       }
 
-      // Set new timeout
+      const remaining = timeout - elapsed;
       timeoutIdRef.current = setTimeout(() => {
         onInactive();
-      }, timeout);
+      }, remaining);
+    };
+
+    const resetTimer = () => {
+      const activityTs = now();
+      lastActivityRef.current = activityTs;
+
+      // Set new timeout
+      scheduleTimeout(activityTs);
 
       writeLastActivity(now());
     };
@@ -92,17 +112,33 @@ export function useInactivityLogout({
       "click"
     ];
 
+    // Track activity coming from other tabs as well so one idle tab cannot log everyone out
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== storageKey || !event.newValue) return;
+      const parsed = Number.parseInt(event.newValue, 10);
+      if (!Number.isFinite(parsed)) return;
+
+      // Only reschedule if the incoming timestamp is newer
+      if (lastActivityRef.current != null && parsed <= lastActivityRef.current) {
+        return;
+      }
+
+      lastActivityRef.current = parsed;
+      scheduleTimeout(parsed);
+    };
+
     // Set initial timer respecting any elapsed idle time
-    const remaining = lastActivity != null ? Math.max(timeout - elapsed, 0) : timeout;
-    timeoutIdRef.current = setTimeout(() => {
-      onInactive();
-    }, remaining);
-    writeLastActivity(now() - (timeout - remaining));
+    const initialTimestamp = lastActivity != null ? lastActivity : now();
+    lastActivityRef.current = initialTimestamp;
+    scheduleTimeout(initialTimestamp);
+    writeLastActivity(initialTimestamp);
 
     // Add event listeners
     events.forEach((event) => {
       document.addEventListener(event, resetTimer);
     });
+
+    window.addEventListener("storage", handleStorage);
 
     // Cleanup function
     return () => {
@@ -112,6 +148,7 @@ export function useInactivityLogout({
       events.forEach((event) => {
         document.removeEventListener(event, resetTimer);
       });
+      window.removeEventListener("storage", handleStorage);
     };
   }, [timeout, onInactive, isAuthenticated, storageKey, readLastActivity, writeLastActivity]);
 }

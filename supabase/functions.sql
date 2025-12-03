@@ -22,7 +22,8 @@ create or replace function public.random_questions(
   mcq_only boolean default false,
   include_attempted boolean default false,
   flashcards_only boolean default false,
-  categories text[] default null
+  categories text[] default null,
+  question_types text[] default null
 )
 returns table (
   id uuid,
@@ -67,6 +68,7 @@ as $$
   where (topics is null or q.topic = any(topics))
     and (difficulties is null or q.difficulty::text = any(difficulties))
     and (categories is null or q.category::text = any(categories))
+    and (question_types is null or q.question_type::text = any(question_types))
     and (
       -- Show all questions if neither filter is specified
       (not mcq_only and not flashcards_only)
@@ -89,7 +91,7 @@ as $$
 $$;
 
 -- Grant execute permissions
-grant execute on function public.random_questions(int, text[], text[], boolean, boolean, boolean, text[]) to anon, authenticated;
+grant execute on function public.random_questions(int, text[], text[], boolean, boolean, boolean, text[], text[]) to anon, authenticated;
 
 -- Distinct topics
 create or replace function public.list_topics()
