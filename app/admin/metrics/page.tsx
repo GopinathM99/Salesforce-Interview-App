@@ -8,12 +8,15 @@ import type { Difficulty } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 
 type MetricsRow = {
-  topic: string;
+  label: string;
   counts: Record<string, number>;
   total: number;
 };
 
 const defaultDifficultyOrder: Difficulty[] = ["easy", "medium", "hard"];
+const defaultQuestionTypeOrder = ["Knowledge", "Scenarios"];
+type GroupByOption = "topic" | "category";
+type BreakdownOption = "difficulty" | "question_type";
 
 export default function AdminMetricsPage() {
   return (
@@ -30,7 +33,9 @@ type ContentProps = {
 function Content({ ctx: _ctx }: ContentProps) {
   void _ctx;
   const [rows, setRows] = useState<MetricsRow[]>([]);
-  const [difficultyOrder, setDifficultyOrder] = useState<string[]>([...defaultDifficultyOrder]);
+  const [columnOrder, setColumnOrder] = useState<string[]>([...defaultDifficultyOrder]);
+  const [groupBy, setGroupBy] = useState<GroupByOption>("topic");
+  const [breakdownBy, setBreakdownBy] = useState<BreakdownOption>("difficulty");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +45,7 @@ function Content({ ctx: _ctx }: ContentProps) {
 
     const { data, error: queryError } = await supabase
       .from("questions")
-      .select("topic, difficulty");
+      .select("topic, category, difficulty, question_type");
 
     if (queryError) {
       setError(queryError.message);
@@ -49,44 +54,55 @@ function Content({ ctx: _ctx }: ContentProps) {
       return;
     }
 
-    const raw = (data as Array<{ topic: string | null; difficulty: Difficulty | null }> | null) ?? [];
+    const raw =
+      (data as
+        Array<{
+          topic: string | null;
+          category: string | null;
+          difficulty: Difficulty | null;
+          question_type: string | null;
+        }> | null) ?? [];
 
-    const topicMap = new Map<string, Record<string, number>>();
-    const difficultySet = new Set<string>();
+    const bucketMap = new Map<string, Record<string, number>>();
+    const columnValueSet = new Set<string>();
 
     raw.forEach((entry) => {
-      const topic = (entry.topic?.trim() ?? "") || "Uncategorized";
-      const difficulty = (entry.difficulty?.trim().toLowerCase() ?? "") || "unspecified";
+      const bucketLabel =
+        groupBy === "topic" ? entry.topic?.trim() ?? "" : entry.category?.trim() ?? "";
+      const label = bucketLabel || "Uncategorized";
+      const rawColumnValue =
+        breakdownBy === "difficulty" ? entry.difficulty?.trim().toLowerCase() ?? "" : entry.question_type?.trim() ?? "";
+      const columnValue = normalizeColumnValue(rawColumnValue, breakdownBy);
 
-      difficultySet.add(difficulty);
+      columnValueSet.add(columnValue);
 
-      if (!topicMap.has(topic)) {
-        topicMap.set(topic, {});
+      if (!bucketMap.has(label)) {
+        bucketMap.set(label, {});
       }
 
-      const current = topicMap.get(topic)!;
-      current[difficulty] = (current[difficulty] ?? 0) + 1;
+      const current = bucketMap.get(label)!;
+      current[columnValue] = (current[columnValue] ?? 0) + 1;
     });
 
-    const orderedDifficulties = buildDifficultyOrder(difficultySet);
+    const orderedColumns = buildColumnOrder(columnValueSet, breakdownBy);
 
-    const nextRows: MetricsRow[] = Array.from(topicMap.entries())
-      .map(([topic, counts]) => {
+    const nextRows: MetricsRow[] = Array.from(bucketMap.entries())
+      .map(([label, counts]) => {
         const filledCounts: Record<string, number> = {};
         let total = 0;
-        orderedDifficulties.forEach((difficulty) => {
-          const value = counts[difficulty] ?? 0;
-          filledCounts[difficulty] = value;
+        orderedColumns.forEach((column) => {
+          const value = counts[column] ?? 0;
+          filledCounts[column] = value;
           total += value;
         });
-        return { topic, counts: filledCounts, total };
+        return { label, counts: filledCounts, total };
       })
-      .sort((a, b) => a.topic.localeCompare(b.topic, undefined, { sensitivity: "base" }));
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 
-    setDifficultyOrder(orderedDifficulties);
+    setColumnOrder(orderedColumns);
     setRows(nextRows);
     setLoading(false);
-  }, []);
+  }, [groupBy, breakdownBy]);
 
   useEffect(() => {
     void loadMetrics();
@@ -94,22 +110,22 @@ function Content({ ctx: _ctx }: ContentProps) {
 
   const columnTotals = useMemo(() => {
     const totals: Record<string, number> = {};
-    difficultyOrder.forEach((difficulty) => {
-      totals[difficulty] = 0;
+    columnOrder.forEach((column) => {
+      totals[column] = 0;
     });
 
     let overall = 0;
 
     rows.forEach((row) => {
-      difficultyOrder.forEach((difficulty) => {
-        const value = row.counts[difficulty] ?? 0;
-        totals[difficulty] += value;
+      columnOrder.forEach((column) => {
+        const value = row.counts[column] ?? 0;
+        totals[column] += value;
         overall += value;
       });
     });
 
     return { totals, overall };
-  }, [difficultyOrder, rows]);
+  }, [columnOrder, rows]);
 
   return (
     <div className="admin-stack">
@@ -121,8 +137,33 @@ function Content({ ctx: _ctx }: ContentProps) {
           </div>
         </div>
         <p className="muted">
-          View the distribution of questions by topic and difficulty to understand content coverage.
+          View the distribution of questions by topic or category and difficulty or question type to understand content
+          coverage.
         </p>
+        <div className="row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+          <label className="muted" htmlFor="groupBy">Group by</label>
+          <select
+            id="groupBy"
+            value={groupBy}
+            onChange={(event) => setGroupBy(event.target.value as GroupByOption)}
+            style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border-muted, #ddd)" }}
+            disabled={loading}
+          >
+            <option value="topic">Topic</option>
+            <option value="category">Category</option>
+          </select>
+          <label className="muted" htmlFor="breakdownBy">Breakdown by</label>
+          <select
+            id="breakdownBy"
+            value={breakdownBy}
+            onChange={(event) => setBreakdownBy(event.target.value as BreakdownOption)}
+            style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border-muted, #ddd)" }}
+            disabled={loading}
+          >
+            <option value="difficulty">Difficulty</option>
+            <option value="question_type">Question Type</option>
+          </select>
+        </div>
         <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           <button className="btn" onClick={() => void loadMetrics()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh Metrics"}
@@ -140,20 +181,22 @@ function Content({ ctx: _ctx }: ContentProps) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={cellStyles.headerLeft}>Topic</th>
-                  {difficultyOrder.map((difficulty) => (
-                    <th key={difficulty} style={cellStyles.headerRight}>{formatDifficultyLabel(difficulty)}</th>
+                  <th style={cellStyles.headerLeft}>{groupBy === "topic" ? "Topic" : "Category"}</th>
+                  {columnOrder.map((column) => (
+                    <th key={column} style={cellStyles.headerRight}>
+                      {breakdownBy === "difficulty" ? formatDifficultyLabel(column) : formatQuestionTypeLabel(column)}
+                    </th>
                   ))}
                   <th style={cellStyles.headerRight}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.topic}>
-                    <td style={cellStyles.topic}>{row.topic}</td>
-                    {difficultyOrder.map((difficulty) => (
-                      <td key={difficulty} style={cellStyles.cell}>
-                        {row.counts[difficulty]?.toLocaleString() ?? "0"}
+                  <tr key={row.label}>
+                    <td style={cellStyles.topic}>{row.label}</td>
+                    {columnOrder.map((column) => (
+                      <td key={column} style={cellStyles.cell}>
+                        {row.counts[column]?.toLocaleString() ?? "0"}
                       </td>
                     ))}
                     <td style={cellStyles.total}>{row.total.toLocaleString()}</td>
@@ -163,9 +206,9 @@ function Content({ ctx: _ctx }: ContentProps) {
               <tfoot>
                 <tr>
                   <td style={cellStyles.footerLeft}>Total</td>
-                  {difficultyOrder.map((difficulty) => (
-                    <td key={difficulty} style={cellStyles.footer}>
-                      {columnTotals.totals[difficulty]?.toLocaleString() ?? "0"}
+                  {columnOrder.map((column) => (
+                    <td key={column} style={cellStyles.footer}>
+                      {columnTotals.totals[column]?.toLocaleString() ?? "0"}
                     </td>
                   ))}
                   <td style={cellStyles.footer}>{columnTotals.overall.toLocaleString()}</td>
@@ -188,9 +231,35 @@ function buildDifficultyOrder(difficultySet: Set<string>) {
   return [...defaultDifficultyOrder, ...extras];
 }
 
+function buildQuestionTypeOrder(typeSet: Set<string>) {
+  const normalized = Array.from(typeSet).filter(Boolean);
+  const extras = normalized
+    .filter((type) => !defaultQuestionTypeOrder.includes(type))
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+  return [...defaultQuestionTypeOrder, ...extras];
+}
+
+function buildColumnOrder(values: Set<string>, breakdown: BreakdownOption) {
+  if (breakdown === "difficulty") return buildDifficultyOrder(values);
+  return buildQuestionTypeOrder(values);
+}
+
+function normalizeColumnValue(value: string, breakdown: BreakdownOption) {
+  const sanitized = value.trim();
+  if (!sanitized) return "unspecified";
+  if (breakdown === "difficulty") return sanitized.toLowerCase();
+  return sanitized;
+}
+
 function formatDifficultyLabel(label: string) {
   if (label === "unspecified") return "Unspecified";
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function formatQuestionTypeLabel(label: string) {
+  if (label === "unspecified") return "Unspecified";
+  return label;
 }
 
 const cellStyles = {
