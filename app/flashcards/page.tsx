@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import type { Difficulty, Question, RawQuestion } from "@/lib/types";
+import type { Difficulty, Question, QuestionType, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -12,7 +12,10 @@ type Filters = {
   topic: string | null;
   difficulty: Difficulty | null;
   category: string | null;
+  questionType: QuestionType | null;
 };
+
+const QUESTION_TYPES: QuestionType[] = ["Knowledge", "Scenarios"];
 
 function FlashcardsContent() {
   const { user } = useAuth();
@@ -23,10 +26,11 @@ function FlashcardsContent() {
   const [reveal, setReveal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ 
-    topic: null, 
+  const [filters, setFilters] = useState<Filters>({
+    topic: null,
     difficulty: null,
-    category: categoryFromUrl
+    category: categoryFromUrl,
+    questionType: null
   });
   const [topics, setTopics] = useState<string[]>([]);
   const [info, setInfo] = useState<string | null>(null);
@@ -72,7 +76,8 @@ function FlashcardsContent() {
       mcq_only: false,
       include_attempted: false,
       flashcards_only: true,
-      categories: filters.category ? [filters.category] : null
+      categories: filters.category ? [filters.category] : null,
+      question_types: filters.questionType ? [filters.questionType] : null
     };
     
     const { data, error } = await supabase.rpc("random_questions", payload);
@@ -151,6 +156,7 @@ function FlashcardsContent() {
           {q.category && <span className="pill">Category: {q.category}</span>}
           <span className="pill">Topic: {q.topic}</span>
           <span className="pill">Difficulty: {q.difficulty}</span>
+          {q.question_type && <span className="pill">Type: {q.question_type}</span>}
         </div>
         {q.question_number && (
           <span className="pill" style={{ fontWeight: 600, color: "#3b82f6", fontSize: "14px" }}>
@@ -238,6 +244,25 @@ function FlashcardsContent() {
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div className="col">
+            <label>Question Type</label>
+            <select
+              value={filters.questionType ?? ""}
+              onChange={(e) =>
+                setFilters((f) => ({
+                  ...f,
+                  questionType: (e.target.value || null) as QuestionType | null
+                }))
+              }
+            >
+              <option value="">All</option>
+              {QUESTION_TYPES.map((qt) => (
+                <option key={qt} value={qt}>
+                  {qt}
+                </option>
+              ))}
             </select>
           </div>
         </div>
