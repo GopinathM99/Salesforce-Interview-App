@@ -36,6 +36,7 @@ const parseQuestionNumbers = (value: string): number[] => {
 function Content({ ctx: _ctx }: ContentProps) {
   void _ctx;
   const [topics, setTopics] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [topicFilter, setTopicFilter] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
   const [items, setItems] = useState<Question[]>([]);
@@ -62,6 +63,13 @@ function Content({ ctx: _ctx }: ContentProps) {
     });
   }, []);
 
+  const loadCategories = useCallback(async () => {
+    const { data, error } = await supabase.rpc("list_categories");
+    if (error) return;
+    const list = ((data as string[]) ?? []).filter((c): c is string => Boolean(c));
+    setCategories(list);
+  }, []);
+
   const loadItems = useCallback(async () => {
     setLoading(true);
     let query = supabase
@@ -85,6 +93,10 @@ function Content({ ctx: _ctx }: ContentProps) {
   useEffect(() => {
     void loadTopics();
   }, [loadTopics]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     void loadItems();
@@ -342,6 +354,7 @@ function Content({ ctx: _ctx }: ContentProps) {
                                   <QuestionForm
                                     initial={duplicate}
                                     topics={topics}
+                                    categories={categories}
                                     onCancel={() => setEditId(null)}
                                     onSaved={handleQuestionSaved}
                                   />
@@ -393,6 +406,7 @@ function Content({ ctx: _ctx }: ContentProps) {
                         <QuestionForm
                           initial={question}
                           topics={topics}
+                          categories={categories}
                           onCancel={() => setEditId(null)}
                           onSaved={handleQuestionSaved}
                         />
