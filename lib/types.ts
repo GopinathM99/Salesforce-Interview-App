@@ -1,5 +1,18 @@
 export type Difficulty = "easy" | "medium" | "hard";
 export type QuestionType = "Knowledge" | "Scenarios";
+export type Category =
+  | "General"
+  | "Sales Cloud"
+  | "Service Cloud"
+  | "Agentforce"
+  | "CPQ"
+  | "Litify"
+  | "Omnistudio"
+  | "Agentforce Concepts"
+  | "Agentforce and Service Cloud"
+  | "Agentforce and Data Cloud"
+  | "Agentforce and Sales Cloud"
+  | "Prompt Engineering";
 
 export interface MultipleChoiceQuestion {
   id: string;
@@ -28,8 +41,8 @@ export interface RawQuestion {
   question_number?: number;
   question_text: string;
   answer_text: string | null;
-  topic: string;
-  category: string | null;
+  topic: string; // ENUM in database - values are dynamic
+  category: Category | string | null; // ENUM in database
   difficulty: Difficulty;
   question_type?: QuestionType;
   created_at: string;
@@ -42,8 +55,8 @@ export interface Question {
   question_number?: number;
   question_text: string;
   answer_text: string | null;
-  topic: string;
-  category: string | null;
+  topic: string; // ENUM in database - values are dynamic
+  category: Category | string | null; // ENUM in database
   difficulty: Difficulty;
   question_type?: QuestionType;
   created_at: string;

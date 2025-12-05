@@ -2,21 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { Difficulty, Question, RawQuestion } from "@/lib/types";
+import type { Difficulty, Question, QuestionType, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
 
 type Props = {
   initial?: Partial<Question>;
   topics?: string[];
+  categories?: string[];
   onSaved?: (q: Question) => void;
   onCancel?: () => void;
+  onAskAI?: () => void;
+  askAIActive?: boolean;
 };
 
-export default function QuestionForm({ initial, topics = [], onSaved, onCancel }: Props) {
+export default function QuestionForm({ initial, topics = [], categories = [], onSaved, onCancel, onAskAI, askAIActive }: Props) {
   const [questionText, setQuestionText] = useState(initial?.question_text ?? "");
   const [answerText, setAnswerText] = useState(initial?.answer_text ?? "");
   const [topic, setTopic] = useState(initial?.topic ?? "");
-  const [difficulty, setDifficulty] = useState<Difficulty>((initial?.difficulty as Difficulty) ?? "medium");
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [difficulty, setDifficulty] = useState<Difficulty>((initial?.difficulty as Difficulty) ?? "easy");
+  const [questionType, setQuestionType] = useState<QuestionType>((initial?.question_type as QuestionType) ?? "Knowledge");
   const [isMcq, setIsMcq] = useState<boolean>(Boolean(initial?.mcq));
   const initialChoices = initial?.mcq ? [...initial.mcq.choices] : ["", ""];
   const [choices, setChoices] = useState<string[]>(initialChoices);
@@ -51,7 +56,9 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
         question_text: questionText.trim(),
         answer_text: answerText.trim() || null,
         topic: topic.trim(),
-        difficulty
+        category: category.trim() || null,
+        difficulty,
+        question_type: questionType
       };
 
       let questionId = initial?.id ?? null;
@@ -121,12 +128,12 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
       <div className="col" style={{ gap: 12 }}>
         <div className="col">
           <label>Topic</label>
-          <input list="topics-list" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Apex" />
-          <datalist id="topics-list">
+          <select value={topic} onChange={(e) => setTopic(e.target.value)}>
+            <option value="">Select a topic</option>
             {topics.map((t) => (
-              <option key={t} value={t} />
+              <option key={t} value={t}>{t}</option>
             ))}
-          </datalist>
+          </select>
         </div>
         <div className="col">
           <label>Difficulty</label>
@@ -134,6 +141,22 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div className="col">
+          <label>Category</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Select a category</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div className="col">
+          <label>Question Type</label>
+          <select value={questionType} onChange={(e) => setQuestionType(e.target.value as QuestionType)}>
+            <option value="Knowledge">Knowledge</option>
+            <option value="Scenarios">Scenarios</option>
           </select>
         </div>
         <div className="col">
@@ -194,13 +217,33 @@ export default function QuestionForm({ initial, topics = [], onSaved, onCancel }
           </div>
         )}
 
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary" onClick={onSubmit} disabled={saving || !canSave}>
-            {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Question"}
-          </button>
-          {onCancel && (
-            <button className="btn" onClick={onCancel} disabled={saving}>
-              Cancel
+        <div className="row" style={{ gap: 8, justifyContent: "space-between" }}>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn primary" onClick={onSubmit} disabled={saving || !canSave}>
+              {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Question"}
+            </button>
+            {onCancel && (
+              <button className="btn" onClick={onCancel} disabled={saving}>
+                Cancel
+              </button>
+            )}
+          </div>
+          {onAskAI && (
+            <button
+              className="btn"
+              onClick={onAskAI}
+              style={{
+                background: askAIActive
+                  ? "linear-gradient(135deg, #1e293b 0%, #334155 100%)"
+                  : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                color: "white",
+                borderColor: askAIActive ? "rgba(59, 130, 246, 0.3)" : "#10b981",
+                boxShadow: askAIActive
+                  ? "0 2px 4px rgba(0, 0, 0, 0.1)"
+                  : "0 4px 12px rgba(16, 185, 129, 0.3)"
+              }}
+            >
+              {askAIActive ? "Close AI" : "Ask AI"}
             </button>
           )}
         </div>
