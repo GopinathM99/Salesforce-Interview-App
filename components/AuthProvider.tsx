@@ -11,6 +11,7 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithOTP: (magicLink: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -129,6 +130,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signInWithOTP = useCallback(async (magicLink: string) => {
+    setLoading(true);
+    try {
+      // Extract the token from the magic link
+      const url = new URL(magicLink);
+      const token = url.searchParams.get('token');
+      const type = url.searchParams.get('type');
+
+      if (!token || !type) {
+        throw new Error('Invalid magic link');
+      }
+
+      // Verify the OTP token with Supabase
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: type as 'magiclink' | 'email',
+      });
+
+      if (error) {
+        setLoading(false);
+        throw error;
+      }
+
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
@@ -155,9 +186,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       signInWithGoogle,
+      signInWithOTP,
       signOut
     }),
-    [session, loading, signInWithGoogle, signOut]
+    [session, loading, signInWithGoogle, signInWithOTP, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
