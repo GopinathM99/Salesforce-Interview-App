@@ -544,6 +544,37 @@ create policy "Admins can manage profiles"
   using (public.is_admin())
   with check (public.is_admin());
 
+-- Table for storing one-time password codes for email authentication
+create table if not exists public.otp_codes (
+  id uuid primary key default gen_random_uuid(),
+  email citext not null,
+  code text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '10 minutes'),
+  verified boolean not null default false,
+  verified_at timestamptz
+);
+
+create index if not exists idx_otp_codes_email on public.otp_codes (email);
+create index if not exists idx_otp_codes_code on public.otp_codes (code);
+create index if not exists idx_otp_codes_expires_at on public.otp_codes (expires_at);
+
+-- Enable RLS for OTP codes table
+alter table public.otp_codes enable row level security;
+
+-- Allow anonymous users to insert OTP codes (for registration/login flow)
+drop policy if exists "Allow anonymous OTP creation" on public.otp_codes;
+create policy "Allow anonymous OTP creation"
+  on public.otp_codes for insert
+  to anon
+  with check (true);
+
+-- Allow service role to read and update OTP codes
+drop policy if exists "Service role can manage OTP codes" on public.otp_codes;
+create policy "Service role can manage OTP codes"
+  on public.otp_codes for all
+  using (true);
+
 -- Track which user has attempted which question
 create table if not exists public.question_attempts (
   id uuid primary key default gen_random_uuid(),
