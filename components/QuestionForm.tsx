@@ -11,14 +11,16 @@ type Props = {
   categories?: string[];
   onSaved?: (q: Question) => void;
   onCancel?: () => void;
+  onAskAI?: () => void;
+  askAIActive?: boolean;
 };
 
-export default function QuestionForm({ initial, topics = [], categories = [], onSaved, onCancel }: Props) {
+export default function QuestionForm({ initial, topics = [], categories = [], onSaved, onCancel, onAskAI, askAIActive }: Props) {
   const [questionText, setQuestionText] = useState(initial?.question_text ?? "");
   const [answerText, setAnswerText] = useState(initial?.answer_text ?? "");
   const [topic, setTopic] = useState(initial?.topic ?? "");
   const [category, setCategory] = useState(initial?.category ?? "");
-  const [difficulty, setDifficulty] = useState<Difficulty>((initial?.difficulty as Difficulty) ?? "medium");
+  const [difficulty, setDifficulty] = useState<Difficulty>((initial?.difficulty as Difficulty) ?? "easy");
   const [questionType, setQuestionType] = useState<QuestionType>((initial?.question_type as QuestionType) ?? "Knowledge");
   const [isMcq, setIsMcq] = useState<boolean>(Boolean(initial?.mcq));
   const initialChoices = initial?.mcq ? [...initial.mcq.choices] : ["", ""];
@@ -215,13 +217,33 @@ export default function QuestionForm({ initial, topics = [], categories = [], on
           </div>
         )}
 
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn primary" onClick={onSubmit} disabled={saving || !canSave}>
-            {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Question"}
-          </button>
-          {onCancel && (
-            <button className="btn" onClick={onCancel} disabled={saving}>
-              Cancel
+        <div className="row" style={{ gap: 8, justifyContent: "space-between" }}>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn primary" onClick={onSubmit} disabled={saving || !canSave}>
+              {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Question"}
+            </button>
+            {onCancel && (
+              <button className="btn" onClick={onCancel} disabled={saving}>
+                Cancel
+              </button>
+            )}
+          </div>
+          {onAskAI && (
+            <button
+              className="btn"
+              onClick={onAskAI}
+              style={{
+                background: askAIActive
+                  ? "linear-gradient(135deg, #1e293b 0%, #334155 100%)"
+                  : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                color: "white",
+                borderColor: askAIActive ? "rgba(59, 130, 246, 0.3)" : "#10b981",
+                boxShadow: askAIActive
+                  ? "0 2px 4px rgba(0, 0, 0, 0.1)"
+                  : "0 4px 12px rgba(16, 185, 129, 0.3)"
+              }}
+            >
+              {askAIActive ? "Close AI" : "Ask AI"}
             </button>
           )}
         </div>
