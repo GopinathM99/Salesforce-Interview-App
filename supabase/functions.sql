@@ -45,7 +45,7 @@ as $$
     q.question_number,
     q.question_text,
     q.answer_text,
-    q.topic,
+    q.topic::text as topic,
     q.category,
     q.difficulty,
     q.question_type,
@@ -65,7 +65,7 @@ as $$
     end as mcq
   from public.questions q
   left join public.multiple_choice_questions mcq on mcq.question_id = q.id
-  where (topics is null or q.topic = any(topics))
+  where (topics is null or q.topic::text = any(topics))
     and (difficulties is null or q.difficulty::text = any(difficulties))
     and (categories is null or q.category::text = any(categories))
     and (question_types is null or q.question_type::text = any(question_types))
@@ -99,7 +99,7 @@ returns setof text
 language sql
 stable
 as $$
-  select distinct q.topic from public.questions q where q.topic is not null order by 1;
+  select distinct q.topic::text from public.questions q where q.topic is not null order by 1;
 $$;
 
 grant execute on function public.list_topics() to anon, authenticated;
@@ -110,9 +110,9 @@ returns setof text
 language sql
 stable
 as $$
-  select distinct q.topic 
-  from public.questions q 
-  where q.topic is not null 
+  select distinct q.topic::text
+  from public.questions q
+  where q.topic is not null
     and q.category is not null
     and q.category::text = category_filter
   order by 1;
