@@ -65,10 +65,18 @@ export async function GET(request: NextRequest) {
         data
       });
     } else {
+      const errorMessage =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof (data as { error?: unknown }).error === 'string'
+          ? (data as { error: string }).error
+          : 'Email delivery failed';
+
       console.error('Email delivery failed:', data);
       return NextResponse.json({
         success: false,
-        error: data.error || 'Email delivery failed'
+        error: errorMessage
       }, { status: 500 });
     }
 
