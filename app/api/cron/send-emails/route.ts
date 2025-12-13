@@ -19,13 +19,26 @@ export async function GET(request: NextRequest) {
     const sendEmailsUrl = new URL('/api/send-emails', request.url);
 
     const emailServiceToken = process.env.EMAIL_SERVICE_TOKEN || 'test-token';
+    const vercelBypassToken =
+      process.env.VERCEL_PROTECTION_BYPASS_TOKEN ||
+      process.env.VERCEL_PROTECTION_BYPASS ||
+      process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+      process.env.VERCEL_AUTOMATION_BYPASS_TOKEN ||
+      process.env.VERCEL_BYPASS_TOKEN;
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${emailServiceToken}`,
+      'Content-Type': 'application/json'
+    };
+
+    if (vercelBypassToken) {
+      headers['x-vercel-protection-bypass'] = vercelBypassToken;
+      headers['x-vercel-set-bypass-cookie'] = 'true';
+    }
     
     const response = await fetch(sendEmailsUrl.toString(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${emailServiceToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     const rawBody = await response.text();
