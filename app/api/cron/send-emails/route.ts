@@ -14,14 +14,13 @@ export async function GET(request: NextRequest) {
 
     console.log('Cron job triggered: Starting email delivery process...');
     
-    // Call the email sending API
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
-    
+    // Call the email sending API on the same origin as this request.
+    // Using request.url is more reliable than VERCEL_URL in cron/serverless contexts.
+    const sendEmailsUrl = new URL('/api/send-emails', request.url);
+
     const emailServiceToken = process.env.EMAIL_SERVICE_TOKEN || 'test-token';
     
-    const response = await fetch(`${baseUrl}/api/send-emails`, {
+    const response = await fetch(sendEmailsUrl.toString(), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${emailServiceToken}`,
@@ -29,7 +28,34 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const data = await response.json();
+    const rawBody = await response.text();
+    let data: unknown = null;
+
+    try {
+      data = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      const contentType = response.headers.get('content-type');
+      const preview = rawBody.slice(0, 600);
+
+      console.error('Cron job error: send-emails did not return JSON', {
+        status: response.status,
+        contentType,
+        url: sendEmailsUrl.toString(),
+        preview
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'send-emails returned non-JSON response',
+          status: response.status,
+          contentType,
+          url: sendEmailsUrl.toString(),
+          preview
+        },
+        { status: 502 }
+      );
+    }
 
     if (response.ok) {
       console.log('Email delivery completed successfully:', data);
@@ -39,10 +65,18 @@ export async function GET(request: NextRequest) {
         data
       });
     } else {
+      const errorMessage =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof (data as { error?: unknown }).error === 'string'
+          ? (data as { error: string }).error
+          : 'Email delivery failed';
+
       console.error('Email delivery failed:', data);
       return NextResponse.json({
         success: false,
-        error: data.error || 'Email delivery failed'
+        error: errorMessage
       }, { status: 500 });
     }
 
