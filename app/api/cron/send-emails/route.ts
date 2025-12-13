@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { runEmailDeliveryJob } from '@/lib/emailDeliveryJob';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,85 +14,16 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Cron job triggered: Starting email delivery process...');
-    
-    // Call the email sending API on the same origin as this request.
-    // Using request.url is more reliable than VERCEL_URL in cron/serverless contexts.
-    const sendEmailsUrl = new URL('/api/send-emails', request.url);
 
-    const emailServiceToken = process.env.EMAIL_SERVICE_TOKEN || 'test-token';
-    const vercelBypassToken =
-      process.env.VERCEL_PROTECTION_BYPASS_TOKEN ||
-      process.env.VERCEL_PROTECTION_BYPASS ||
-      process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
-      process.env.VERCEL_AUTOMATION_BYPASS_TOKEN ||
-      process.env.VERCEL_BYPASS_TOKEN;
+    const { searchParams } = new URL(request.url);
+    const sendAllQuery = searchParams.get('sendAll');
+    const includeAllActive = sendAllQuery === '1' || sendAllQuery?.toLowerCase() === 'true';
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${emailServiceToken}`,
-      'Content-Type': 'application/json'
-    };
-
-    if (vercelBypassToken) {
-      headers['x-vercel-protection-bypass'] = vercelBypassToken;
-      headers['x-vercel-set-bypass-cookie'] = 'true';
-    }
-    
-    const response = await fetch(sendEmailsUrl.toString(), {
-      method: 'POST',
-      headers,
+    const jobResult = await runEmailDeliveryJob({ includeAllActive });
+    return NextResponse.json({
+      success: true,
+      data: jobResult
     });
-
-    const rawBody = await response.text();
-    let data: unknown = null;
-
-    try {
-      data = rawBody ? JSON.parse(rawBody) : null;
-    } catch {
-      const contentType = response.headers.get('content-type');
-      const preview = rawBody.slice(0, 600);
-
-      console.error('Cron job error: send-emails did not return JSON', {
-        status: response.status,
-        contentType,
-        url: sendEmailsUrl.toString(),
-        preview
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'send-emails returned non-JSON response',
-          status: response.status,
-          contentType,
-          url: sendEmailsUrl.toString(),
-          preview
-        },
-        { status: 502 }
-      );
-    }
-
-    if (response.ok) {
-      console.log('Email delivery completed successfully:', data);
-      return NextResponse.json({
-        success: true,
-        message: 'Email delivery completed',
-        data
-      });
-    } else {
-      const errorMessage =
-        typeof data === 'object' &&
-        data !== null &&
-        'error' in data &&
-        typeof (data as { error?: unknown }).error === 'string'
-          ? (data as { error: string }).error
-          : 'Email delivery failed';
-
-      console.error('Email delivery failed:', data);
-      return NextResponse.json({
-        success: false,
-        error: errorMessage
-      }, { status: 500 });
-    }
 
   } catch (error) {
     console.error('Cron job error:', error);
