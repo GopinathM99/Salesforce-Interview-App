@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     try {
       data = rawBody ? JSON.parse(rawBody) : null;
-    } catch (error) {
+    } catch {
       const contentType = response.headers.get('content-type');
       const preview = rawBody.slice(0, 600);
 
