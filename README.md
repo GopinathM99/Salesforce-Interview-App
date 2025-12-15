@@ -49,11 +49,13 @@ This feature helps protect user accounts by automatically ending sessions when d
 
 - Enable Email/Password in Supabase Authentication.
 - Create an admin user in the Supabase dashboard (Authentication → Users).
-- Add the admin’s login email plus their first and last name to the `public.admin_users` table. Run this once per admin in the SQL editor:
+- Add the admin's login email plus their first and last name to the `public.admin_users` table. Run this once per admin in the SQL editor:
   - `insert into public.admin_users (email, first_name, last_name) values ('you@example.com', 'You', 'Example');`
-- Visit `/admin` and sign in using that account.
-- Use the “Admin Users” card on `/admin` to add or remove additional admins by entering their first name, last name, and login email.
-- Create new questions or edit/delete existing ones. MCQs are created by checking “Is Multiple Choice”, adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
+- Visit `/admin` and sign in using either:
+  - Email/Password authentication (traditional method)
+  - Google OAuth (if enabled in Supabase → Authentication → Providers)
+- Use the "Admin Users" card on `/admin` to add or remove additional admins by entering their first name, last name, and login email.
+- Create new questions or edit/delete existing ones. MCQs are created by checking "Is Multiple Choice", adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
 
 **Gemini AI Question Generation**
@@ -69,9 +71,25 @@ The app includes optional AI-powered question generation using Google's Gemini 2
 
 **Technical Details:**
 - API endpoint: `POST /api/gemini` (requires authentication)
-- Model: `gemini-2.5-pro` with streaming responses
+- Model: `gemini-3-pro-preview` with streaming responses
 - Global rate limit enforced via service role queries to bypass RLS
 - Requires `SUPABASE_SERVICE_ROLE_KEY` for global usage counting
+
+**SQL Template Automation:**
+
+The Gemini follow-up prompt uses a SQL template that defines the format for generated questions. This template is automatically synced between source and generated files:
+
+- **Source File**: `supabase/insert_questions_template.sql` - Edit this file to update the SQL template
+- **Generated File**: `lib/followUpPromptTemplate.ts` - Auto-generated (DO NOT EDIT MANUALLY)
+- **Automation**: Template syncs automatically before `npm run dev` and `npm run build`
+- **Manual Sync**: Run `npm run sync-sql-template` to sync changes immediately
+
+**To update the SQL template:**
+1. Edit `supabase/insert_questions_template.sql` with your desired SQL format
+2. Either restart dev server OR run `npm run sync-sql-template`
+3. Changes automatically appear in the admin question generation UI
+
+The sync script (`scripts/sync-sql-template.js`) reads the SQL file and generates the TypeScript module with proper escaping.
 
 **Database Design**
 

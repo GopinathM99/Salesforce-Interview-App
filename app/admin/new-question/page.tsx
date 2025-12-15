@@ -7,9 +7,10 @@ import ReactMarkdown from "react-markdown";
 import AdminAccessShell from "@/components/AdminAccessShell";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
+import { getFollowUpPrompt, type PromptOptions } from "@/lib/followUpPromptTemplate";
 
 const DIFFICULTY_CHOICES = ["Easy", "Medium", "Hard"];
-const QUESTION_COUNT_CHOICES = ["1", "2", "5", "10"];
+const QUESTION_COUNT_CHOICES = ["1", "2", "5"];
 const QUESTION_KIND_CHOICES = ["Knowledge", "Scenario", "Coding"];
 
 type GeminiMessage = {
@@ -85,50 +86,6 @@ const responseSectionStyle: CSSProperties = {
   gap: 8
 };
 
-const FOLLOW_UP_PROMPT = `I want to insert the above questions into supabase database. Convert the above questions to the below sql format. don't output anything else
-
----
-
-with mcq_rows as (
-select *
-from (
-values
-(
-'Which collection type in Apex maintains insertion order and allows duplicates?',
-'List maintains insertion order and allows duplicates. Set does not allow duplicates; Map stores key-value pairs.',
-'Apex',
-'easy'::public.difficulty_level,
-'["List", "Set", "Map", "sObject"]'::jsonb,
-0
-),
-(
-'What is the max number of records that a single SOQL query can return?',
-'50,000 records per transaction. Use Batch Apex for larger data volumes.',
-'SOQL',
-'easy'::public.difficulty_level,
-'["10,000", "50,000", "100,000", "250,000"]'::jsonb,
-1
-),
-(
-'Which trigger context variable holds the list of IDs of records that were deleted?',
-'Trigger.old contains the old version of sObjects; Trigger.oldMap maps Id to old records. For delete triggers, use Trigger.old and Trigger.oldMap (there is no Trigger.new).',
-'Triggers',
-'medium'::public.difficulty_level,
-'["Trigger.new", "Trigger.old", "Trigger.newMap", "Trigger.size"]'::jsonb,
-1
-)
-) as t(question_text, explanation, topic, difficulty, choices, correct_choice_index)
-),
-inserted_questions as (
-insert into public.questions (question_text, answer_text, topic, difficulty)
-select question_text, explanation, topic, difficulty
-from mcq_rows
-returning id, question_text, answer_text
-)
-insert into public.multiple_choice_questions (question_id, choices, correct_choice_index, explanation)
-select iq.id, mr.choices, mr.correct_choice_index, mr.explanation
-from inserted_questions iq
-join mcq_rows mr on mr.question_text = iq.question_text;`;
 
 export default function AdminNewQuestionPage() {
   return (
@@ -141,15 +98,20 @@ export default function AdminNewQuestionPage() {
 function Content() {
   const { session } = useAuth();
   const [topics, setTopics] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [difficulties, setDifficulties] = useState<string[]>([]);
+  const [questionTypes, setQuestionTypes] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(["Medium", "Hard"]);
-  const [selectedCount, setSelectedCount] = useState<string | null>("10");
+  const [selectedCount, setSelectedCount] = useState<string | null>("5");
   const [selectedKind, setSelectedKind] = useState<string | null>("Scenario");
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [geminiError, setGeminiError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string>("");
   const [geminiFollowUpResponse, setGeminiFollowUpResponse] = useState<string>("");
+  const [followUpPromptSent, setFollowUpPromptSent] = useState<string>("");
+  const [showFollowUpPrompt, setShowFollowUpPrompt] = useState(false);
   const [followUpCopied, setFollowUpCopied] = useState(false);
   const [followUpCopyError, setFollowUpCopyError] = useState<string | null>(null);
   const [insertStatus, setInsertStatus] = useState<SqlExecutionStatus>({ state: "idle" });
@@ -171,9 +133,30 @@ function Content() {
     setTopicsLoading(false);
   }, []);
 
+  const loadMetadata = useCallback(async () => {
+    // Load categories
+    const { data: categoriesData } = await supabase.rpc("list_categories");
+    if (categoriesData) {
+      setCategories((categoriesData as string[]).filter(Boolean));
+    }
+
+    // Load difficulty levels
+    const { data: difficultiesData } = await supabase.rpc("list_difficulty_levels");
+    if (difficultiesData) {
+      setDifficulties((difficultiesData as string[]).filter(Boolean));
+    }
+
+    // Load question types
+    const { data: questionTypesData } = await supabase.rpc("list_question_types");
+    if (questionTypesData) {
+      setQuestionTypes((questionTypesData as string[]).filter(Boolean));
+    }
+  }, []);
+
   useEffect(() => {
     void loadTopics();
-  }, [loadTopics]);
+    void loadMetadata();
+  }, [loadTopics, loadMetadata]);
 
   const topicOptions = useMemo(() => [...topics], [topics]);
 
@@ -198,7 +181,7 @@ function Content() {
     if (kind === "Coding") {
       setSelectedCount("1");
     } else {
-      setSelectedCount("10");
+      setSelectedCount("5");
     }
   };
 
@@ -310,6 +293,8 @@ function Content() {
     setGeminiError(null);
     setGeminiResponse("");
     setGeminiFollowUpResponse("");
+    setFollowUpPromptSent("");
+    setShowFollowUpPrompt(false);
     setFollowUpCopied(false);
     setFollowUpCopyError(null);
 
@@ -325,10 +310,20 @@ function Content() {
 
       // Skip the Supabase INSERT SQL request for coding questions
       if (selectedKind !== "Coding") {
+        const promptOptions: PromptOptions = {
+          topics: topics.length > 0 ? topics : undefined,
+          categories: categories.length > 0 ? categories : undefined,
+          difficulties: difficulties.length > 0 ? difficulties : undefined,
+          questionTypes: questionTypes.length > 0 ? questionTypes : undefined,
+        };
+
+        const followUpPrompt = getFollowUpPrompt(promptOptions);
+        setFollowUpPromptSent(followUpPrompt);
+
         const followUpMessages: GeminiMessage[] = [
           { role: "user", content: geminiPrompt },
           { role: "assistant", content: primary },
-          { role: "user", content: FOLLOW_UP_PROMPT }
+          { role: "user", content: followUpPrompt }
         ];
 
         const followUp = await streamGemini(followUpMessages);
@@ -623,7 +618,7 @@ function Content() {
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h3 className="title" style={{ marginBottom: 0 }}>Gemini Prompt</h3>
         <p className="muted" style={{ marginTop: 0 }}>
-          Send the generated prompt to Gemini 2.5 Pro or copy it manually to draft questions tailored to your
+          Send the generated prompt to Gemini 3 Pro Preview or copy it manually to draft questions tailored to your
           selections.
         </p>
         <pre
@@ -675,6 +670,14 @@ function Content() {
                   Copy
                 </button>
                 <button
+                  className="btn"
+                  type="button"
+                  onClick={() => setShowFollowUpPrompt(!showFollowUpPrompt)}
+                  disabled={!followUpPromptSent}
+                >
+                  {showFollowUpPrompt ? "Hide" : "Show"} Follow Up Prompt
+                </button>
+                <button
                   className="btn success"
                   type="button"
                   onClick={() => void handleInsertIntoSupabase()}
@@ -688,6 +691,24 @@ function Content() {
                 </button>
               </div>
             </div>
+            {showFollowUpPrompt && followUpPromptSent && (
+              <div style={{ marginTop: 12 }}>
+                <strong style={{ fontSize: 14, marginBottom: 8, display: "block" }}>Follow Up Prompt Sent to Gemini</strong>
+                <pre
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    background: "#0f172a",
+                    borderRadius: 8,
+                    padding: 16,
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    color: "#e2e8f0"
+                  }}
+                >{followUpPromptSent}</pre>
+              </div>
+            )}
             {insertStatements.length === 0 && geminiFollowUpResponse && (
               <span className="muted" style={{ fontSize: 12 }}>
                 No INSERT statements detected. Ask Gemini to return SQL INSERT statements.
