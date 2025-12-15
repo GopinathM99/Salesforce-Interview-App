@@ -196,7 +196,7 @@ export default function EmailManagementPage() {
     <div className="grid">
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h1>Email Management</h1>
+          <h1>Subscription Management</h1>
           <Link className="btn" href="/admin">Back to Admin Page</Link>
         </div>
         

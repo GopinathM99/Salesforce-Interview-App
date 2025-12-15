@@ -11,6 +11,7 @@ export type UseAdminAccessResult = {
   authError: string | null;
   setAuthError: (value: string | null) => void;
   signIn: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   checkingAdmin: boolean;
   adminCheckError: string | null;
@@ -90,6 +91,22 @@ export function useAdminAccess(): UseAdminAccessResult {
     if (error) setAuthError(error.message);
   }, [email, password]);
 
+  const signInWithGoogle = useCallback(async () => {
+    setAuthError(null);
+    const redirectTo =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (typeof window !== "undefined" ? window.location.origin : undefined);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: { prompt: "select_account" }
+      }
+    });
+    if (error) setAuthError(error.message);
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
@@ -110,6 +127,7 @@ export function useAdminAccess(): UseAdminAccessResult {
     authError,
     setAuthError,
     signIn,
+    signInWithGoogle,
     signOut,
     checkingAdmin,
     adminCheckError,
