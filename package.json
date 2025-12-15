@@ -3,9 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "sync-sql-template": "node scripts/sync-sql-template.js",
+    "predev": "npm run sync-sql-template",
     "dev": "next dev",
     "dev:clean": "rm -rf .next && next dev",
     "dev:stop": "lsof -ti:3000 | xargs kill -9 || echo 'Port 3000 already free'",
+    "prebuild": "npm run sync-sql-template",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

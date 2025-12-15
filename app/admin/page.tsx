@@ -35,10 +35,10 @@ const tiles = [
     cta: "Review Questions"
   },
   {
-    title: "Email Management",
-    description: "Manage email subscriptions, send test emails, and view delivery logs.",
+    title: "Subscription Management",
+    description: "Manage subscriptions, send test emails, and view delivery logs.",
     href: "/admin/email-management",
-    cta: "Manage Emails"
+    cta: "Manage Subscriptions"
   },
   {
     title: "API Usage Statistics",

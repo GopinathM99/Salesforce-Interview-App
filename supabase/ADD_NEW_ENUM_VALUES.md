@@ -7,8 +7,12 @@ This guide explains where and how to add new Category or Topic enum values to yo
 | Step | For Category | For Topic |
 |------|-------------|-----------|
 | 1. Database | Run **SECTION 1** of `add_enum_values.sql` | Run **SECTION 2** of `add_enum_values.sql` |
-| 2. TypeScript | Update `lib/types.ts` | No change needed (topics are dynamic) |
+| 2. TypeScript | ⚠️ **Required**: Update `lib/types.ts` | ✅ **Not needed** (topics load dynamically) |
 | 3. Schema (optional) | Update `supabase/schema.sql` | Update `supabase/schema.sql` |
+
+**Key Difference:**
+- **Categories**: Broad product areas (Sales Cloud, CPQ, Agentforce)
+- **Topics**: Specific concepts within categories (Workflows, Pricing, Configuration)
 
 ---
 
@@ -275,6 +279,27 @@ After adding new values:
 
 ## Important Notes
 
+### ⚠️ Understanding Category vs Topic
+
+**Categories** are broad product areas (what the question is about):
+- Examples: "Sales Cloud", "Service Cloud", "CPQ", "Agentforce"
+
+**Topics** are specific concepts or features (what aspect of the category):
+- Examples: "Workflows", "Triggers", "Pricing", "Product Rules", "Configuration"
+
+**Common Mistake:**
+```sql
+-- ❌ WRONG - Using Category as Topic
+'CPQ'::public.topic_type,        -- Error! CPQ is a category
+'CPQ'::public.question_category, -- Correct
+
+-- ✅ CORRECT - Using appropriate Topic
+'Product Rules'::public.topic_type,  -- Specific CPQ concept
+'CPQ'::public.question_category,     -- Broad product area
+```
+
+**Note:** Some values like "CPQ" can be BOTH a Category AND a Topic if you add it to both enums. This is useful for general questions about the product itself.
+
 ### ⚠️ Cannot Remove Enum Values
 
 PostgreSQL does **NOT** support removing values from an ENUM type. Once added, a value is permanent. To "remove" a value:
@@ -371,9 +396,83 @@ ALTER TYPE public.topic_type ADD VALUE 'Process Builder';
 - "Process Builder" appears in Topic dropdown ✅
 - No other changes needed!
 
+### Example 3: Adding "CPQ" Topic (Using Full Script)
+
+If you want to add 'CPQ' as a topic (note: CPQ can be both a Category AND a Topic):
+
+**Step 1 - Database (using idempotent script):**
+```sql
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'topic_type' AND n.nspname = 'public'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'topic_type'
+        AND e.enumlabel = 'CPQ'
+    ) THEN
+      ALTER TYPE public.topic_type ADD VALUE 'CPQ';
+      RAISE NOTICE 'Added "CPQ" to topic_type enum';
+    ELSE
+      RAISE NOTICE '"CPQ" already exists in topic_type enum';
+    END IF;
+  ELSE
+    RAISE WARNING 'topic_type enum does not exist yet. Run migrate_topic_to_enum.sql first';
+  END IF;
+END$$;
+```
+
+**Step 2 - Verify:**
+```sql
+SELECT enumlabel as topic_name
+FROM pg_enum e
+JOIN pg_type t ON t.oid = e.enumtypid
+JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = 'public' AND t.typname = 'topic_type'
+ORDER BY enumlabel;
+```
+
+**Step 3 - Use in your queries:**
+```sql
+INSERT INTO questions (question_text, topic, category, ...)
+VALUES (
+  'What is CPQ?',
+  'CPQ'::public.topic_type,        -- Now valid!
+  'CPQ'::public.question_category, -- Also valid!
+  ...
+);
+```
+
 ---
 
 ## Troubleshooting
+
+### "invalid input value for enum topic_type: 'SomeValue'"
+This means you're trying to use a value that doesn't exist in the `topic_type` enum yet.
+
+**Common cause:** Using a Category value as a Topic
+```sql
+-- ❌ Error: "invalid input value for enum topic_type: 'CPQ'"
+'CPQ'::public.topic_type,        -- CPQ might not be added as a topic yet
+'CPQ'::public.question_category  -- CPQ exists as a category
+
+-- ✅ Fix Option 1: Use an existing topic
+'Product Rules'::public.topic_type,
+'CPQ'::public.question_category
+
+-- ✅ Fix Option 2: Add the value as a topic first
+-- Run: ALTER TYPE public.topic_type ADD VALUE 'CPQ';
+-- Then you can use:
+'CPQ'::public.topic_type,
+'CPQ'::public.question_category
+```
 
 ### "enum type does not exist"
 - **For Category:** Run `schema.sql` first to create the enum
