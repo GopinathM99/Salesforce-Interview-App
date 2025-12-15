@@ -196,28 +196,16 @@ function Content() {
       Accept: "text/event-stream"
     };
 
-    // Always get a fresh session to ensure the token is valid and refreshed
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    // Force refresh the session to get a fresh access token
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
-    console.log("[streamGemini] Session check:", {
-      hasSession: !!sessionData.session,
-      hasAccessToken: !!sessionData.session?.access_token,
-      tokenLength: sessionData.session?.access_token?.length ?? 0,
-      sessionError: sessionError?.message ?? null
-    });
-
-    if (sessionError) {
-      throw new Error(`Session error: ${sessionError.message}. Please sign in again.`);
+    // If refresh fails, the session is invalid - user must sign in again
+    if (refreshError || !refreshData.session?.access_token) {
+      await supabase.auth.signOut();
+      throw new Error("Your session has expired or is invalid. Please sign in again.");
     }
 
-    const accessToken = sessionData.session?.access_token ?? null;
-
-    if (!accessToken) {
-      throw new Error("Missing Supabase session. Sign in again to continue.");
-    }
-
-    headers.Authorization = `Bearer ${accessToken}`;
-    console.log("[streamGemini] Authorization header set, token length:", accessToken.length);
+    headers.Authorization = `Bearer ${refreshData.session.access_token}`;
 
     const response = await fetch("/api/gemini", {
       method: "POST",
@@ -371,20 +359,17 @@ function Content() {
       return;
     }
 
-    // Always get a fresh session to ensure the token is valid and refreshed
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    // Force refresh the session to get a fresh access token
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
-    if (sessionError) {
-      setInsertStatus({ state: "error", message: `Session error: ${sessionError.message}. Please sign in again.` });
+    // If refresh fails, the session is invalid - user must sign in again
+    if (refreshError || !refreshData.session?.access_token) {
+      await supabase.auth.signOut();
+      setInsertStatus({ state: "error", message: "Your session has expired or is invalid. Please sign in again." });
       return;
     }
 
-    const accessToken = sessionData.session?.access_token ?? null;
-
-    if (!accessToken) {
-      setInsertStatus({ state: "error", message: "Missing Supabase session. Sign in again to continue." });
-      return;
-    }
+    const accessToken = refreshData.session.access_token;
 
     setInsertStatus({ state: "running" });
 

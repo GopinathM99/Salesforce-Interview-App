@@ -53,20 +53,14 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKeyValue = supabaseServiceKey as string;
 
     const authHeader = request.headers.get("authorization");
-    console.log("[Gemini API] Auth header present:", !!authHeader);
-
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-      console.log("[Gemini API] Rejected: Missing or invalid auth header format");
-      return NextResponse.json({ error: "Unauthorized: Missing or invalid authorization header" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const accessToken = authHeader.replace(/^Bearer\s+/i, "");
     if (!accessToken) {
-      console.log("[Gemini API] Rejected: Empty access token after parsing");
-      return NextResponse.json({ error: "Unauthorized: Empty access token" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("[Gemini API] Token length:", accessToken.length);
 
     // Use service role key to validate the JWT token (bypasses RLS, can validate any token)
     const supabaseAdmin = createClient(supabaseUrlValue, supabaseServiceKeyValue);
@@ -77,11 +71,8 @@ export async function POST(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (userError || !user) {
-      console.log("[Gemini API] Rejected: getUser failed", userError?.message || "No user returned");
       return NextResponse.json({ error: `Unauthorized: ${userError?.message || "Invalid session"}` }, { status: 401 });
     }
-
-    console.log("[Gemini API] User authenticated:", user.id);
 
     // Create a client with the user's token for RLS-protected operations
     const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
