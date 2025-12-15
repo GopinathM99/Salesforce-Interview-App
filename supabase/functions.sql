@@ -131,6 +131,28 @@ $$;
 
 grant execute on function public.list_categories() to anon, authenticated;
 
+-- List all difficulty levels from enum
+create or replace function public.list_difficulty_levels()
+returns setof text
+language sql
+stable
+as $$
+  select unnest(enum_range(null::public.difficulty_level))::text order by 1;
+$$;
+
+grant execute on function public.list_difficulty_levels() to anon, authenticated;
+
+-- List all question types from enum
+create or replace function public.list_question_types()
+returns setof text
+language sql
+stable
+as $$
+  select unnest(enum_range(null::public.question_type))::text order by 1;
+$$;
+
+grant execute on function public.list_question_types() to anon, authenticated;
+
 -- Track user sessions
 drop function if exists public.log_user_sign_in(text, text, text);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -23,6 +23,24 @@ interface SubscriptionPreferences {
   customMessage?: string;
 }
 
+type SubscriptionRow = {
+  id: string;
+  email: string;
+  user_id: string | null;
+  topics: string[];
+  difficulties: string[];
+  question_types: string[];
+  practice_modes: string[];
+  question_count: number;
+  delivery_frequency: "Daily" | "Weekly" | "Bi-weekly";
+  include_answers: boolean;
+  custom_message: string | null;
+  is_active: boolean;
+  last_sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export default function SubscribePage() {
   const { user } = useAuth();
   const [subscriptionStatus, setSubscriptionStatus] = useState<
@@ -31,6 +49,9 @@ export default function SubscribePage() {
   const [subscriptionFeedback, setSubscriptionFeedback] = useState<string | null>(null);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
   const [topicsLoading, setTopicsLoading] = useState<boolean>(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState<boolean>(false);
+  const [existingSubscriptionId, setExistingSubscriptionId] = useState<string | null>(null);
+  const [existingSubscriptionActive, setExistingSubscriptionActive] = useState<boolean>(true);
   const [preferences, setPreferences] = useState<SubscriptionPreferences>({
     email: user?.email || "",
     topics: [],
@@ -42,6 +63,8 @@ export default function SubscribePage() {
     includeAnswers: true,
     customMessage: ""
   });
+
+  const userEmail = useMemo(() => user?.email?.trim() || "", [user?.email]);
 
   const toggleArrayItem = (array: string[], item: string) => {
     return array.includes(item)
@@ -68,6 +91,92 @@ export default function SubscribePage() {
     void loadTopics();
   }, []);
 
+  useEffect(() => {
+    const loadExistingSubscription = async () => {
+      if (!user) {
+        setExistingSubscriptionId(null);
+        setExistingSubscriptionActive(true);
+        return;
+      }
+
+      setSubscriptionLoading(true);
+      setSubscriptionFeedback(null);
+
+      try {
+        let subscription: SubscriptionRow | null = null;
+
+        if (user.id) {
+          const { data, error } = await supabase
+            .from("subscription_preferences")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error && error.code !== "PGRST116") {
+            throw error;
+          }
+
+          subscription = (data as SubscriptionRow | null) ?? null;
+        }
+
+        if (!subscription && userEmail) {
+          const { data, error } = await supabase
+            .from("subscription_preferences")
+            .select("*")
+            .eq("email", userEmail)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error && error.code !== "PGRST116") {
+            throw error;
+          }
+
+          subscription = (data as SubscriptionRow | null) ?? null;
+        }
+
+        if (!subscription) {
+          setExistingSubscriptionId(null);
+          setExistingSubscriptionActive(true);
+          setPreferences(prev => ({
+            ...prev,
+            email: userEmail || prev.email
+          }));
+          return;
+        }
+
+        setExistingSubscriptionId(subscription.id);
+        setExistingSubscriptionActive(Boolean(subscription.is_active));
+
+        setPreferences({
+          email: subscription.email || userEmail,
+          topics: Array.isArray(subscription.topics) ? subscription.topics : [],
+          difficulties: Array.isArray(subscription.difficulties) ? subscription.difficulties : [],
+          questionTypes: Array.isArray(subscription.question_types) ? subscription.question_types : [],
+          practiceModes: ["Flashcards"],
+          questionCount: String(subscription.question_count ?? 3),
+          deliveryFrequency: subscription.delivery_frequency ?? "Daily",
+          includeAnswers: Boolean(subscription.include_answers),
+          customMessage: subscription.custom_message || ""
+        });
+      } catch (error) {
+        console.error("Failed to load existing subscription:", error);
+        setExistingSubscriptionId(null);
+        setExistingSubscriptionActive(true);
+        setPreferences(prev => ({
+          ...prev,
+          email: userEmail || prev.email
+        }));
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    void loadExistingSubscription();
+  }, [user, userEmail]);
+
   const handleTopicToggle = (topic: string) => {
     setPreferences(prev => ({
       ...prev,
@@ -90,6 +199,58 @@ export default function SubscribePage() {
   };
 
   // Practice mode toggle removed - always flashcards
+
+  const handleUnsubscribe = async () => {
+    if (!existingSubscriptionId) return;
+
+    setSubscriptionStatus("loading");
+    setSubscriptionFeedback(null);
+
+    try {
+      const { error } = await supabase
+        .from("subscription_preferences")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", existingSubscriptionId);
+
+      if (error) {
+        throw error;
+      }
+
+      setExistingSubscriptionActive(false);
+      setSubscriptionStatus("success");
+      setSubscriptionFeedback("Successfully unsubscribed. You will no longer receive emails.");
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      setSubscriptionStatus("error");
+      setSubscriptionFeedback("Failed to unsubscribe. Please try again.");
+    }
+  };
+
+  const handleResubscribe = async () => {
+    if (!existingSubscriptionId) return;
+
+    setSubscriptionStatus("loading");
+    setSubscriptionFeedback(null);
+
+    try {
+      const { error } = await supabase
+        .from("subscription_preferences")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("id", existingSubscriptionId);
+
+      if (error) {
+        throw error;
+      }
+
+      setExistingSubscriptionActive(true);
+      setSubscriptionStatus("success");
+      setSubscriptionFeedback("Subscription reactivated. Your next scheduled email will be sent based on your frequency.");
+    } catch (error) {
+      console.error("Resubscribe error:", error);
+      setSubscriptionStatus("error");
+      setSubscriptionFeedback("Failed to resubscribe. Please try again.");
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -125,9 +286,9 @@ export default function SubscribePage() {
 
     try {
       // Find an existing subscription record for this user/email so we update instead of inserting
-      let existingId: string | null = null;
+      let existingId: string | null = existingSubscriptionId;
 
-      if (user?.id) {
+      if (!existingId && user?.id) {
         const { data: existingByUser, error: lookupError } = await supabase
           .from("subscription_preferences")
           .select("id")
@@ -181,6 +342,10 @@ export default function SubscribePage() {
         throw error;
       }
 
+      if (existingId) {
+        setExistingSubscriptionId(existingId);
+      }
+      setExistingSubscriptionActive(true);
       setSubscriptionStatus("success");
       setSubscriptionFeedback(
         `Successfully subscribed! You'll receive ${preferences.deliveryFrequency.toLowerCase()} challenges with ${preferences.questionCount} question${preferences.questionCount !== '1' ? 's' : ''} covering ${preferences.topics.length} topic${preferences.topics.length > 1 ? 's' : ''} in flashcard format.`
@@ -207,19 +372,88 @@ export default function SubscribePage() {
           Choose your topics, difficulty levels, and question types to create the perfect study plan.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* Email Section */}
-          <div className="card">
-            <h3>Email Address</h3>
-            <input
-              type="email"
-              placeholder="you@email.com"
-              value={preferences.email}
-              onChange={(e) => setPreferences(prev => ({ ...prev, email: e.target.value }))}
-              required
-              style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
-            />
+        {subscriptionLoading ? (
+          <div
+            className="card"
+            style={{
+              marginTop: 16,
+              backgroundColor: "rgba(59, 130, 246, 0.08)",
+              border: "1px solid rgba(59, 130, 246, 0.2)"
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 600 }}>Loading your subscription…</p>
           </div>
+        ) : existingSubscriptionId ? (
+          <div
+            className="card"
+            style={{
+              marginTop: 16,
+              backgroundColor: existingSubscriptionActive ? "rgba(34, 197, 94, 0.08)" : "rgba(245, 158, 11, 0.08)",
+              border: `1px solid ${existingSubscriptionActive ? "rgba(34, 197, 94, 0.2)" : "rgba(245, 158, 11, 0.2)"}`
+            }}
+          >
+            <div
+              className="row"
+              style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+            >
+              <div>
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  {existingSubscriptionActive ? "Active subscription found for email: " + preferences.email : "Inactive subscription found for email: " + preferences.email}
+                </p>
+                <p className="muted" style={{ margin: "6px 0 0 0" }}>
+                  Your current preferences are loaded below. Update them and save anytime.
+                </p>
+              </div>
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                {existingSubscriptionActive ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleUnsubscribe}
+                    disabled={subscriptionStatus === "loading"}
+                    style={{ backgroundColor: "#dc3545", color: "white", border: "none" }}
+                  >
+                    Unsubscribe
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleResubscribe}
+                    disabled={subscriptionStatus === "loading"}
+                    style={{ backgroundColor: "#28a745", color: "white", border: "none" }}
+                  >
+                    Resubscribe
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : !user ? (
+          <div
+            className="card"
+            style={{
+              marginTop: 16,
+              backgroundColor: "rgba(245, 158, 11, 0.08)",
+              border: "1px solid rgba(245, 158, 11, 0.2)"
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 600 }}>Sign in to manage an existing subscription.</p>
+            <p className="muted" style={{ margin: "6px 0 0 0" }}>
+              We can only load and update existing preferences when you’re signed in.
+            </p>
+          </div>
+        ) : null}
+
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+            marginTop: existingSubscriptionId || subscriptionLoading || !user ? 16 : 0
+          }}
+        >
 
           {/* Topics Section */}
           <div className="card">
