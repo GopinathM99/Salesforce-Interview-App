@@ -27,6 +27,7 @@ BUGS.md
 agentforce-question-bank.md
 SUPABASE_KEEP_ALIVE.md
 private_note.md
+rough.md
 
 # Database migrations
 supabase/migrate_sub_topic_to_category.sql
