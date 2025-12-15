@@ -68,18 +68,13 @@ export async function POST(request: NextRequest) {
 
     console.log("[Gemini API] Token length:", accessToken.length);
 
-    const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
-    });
+    // Use service role key to validate the JWT token (bypasses RLS, can validate any token)
+    const supabaseAdmin = createClient(supabaseUrlValue, supabaseServiceKeyValue);
 
     const {
       data: { user },
       error: userError
-    } = await supabase.auth.getUser(accessToken);
+    } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (userError || !user) {
       console.log("[Gemini API] Rejected: getUser failed", userError?.message || "No user returned");
@@ -87,6 +82,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[Gemini API] User authenticated:", user.id);
+
+    // Create a client with the user's token for RLS-protected operations
+    const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    });
 
     // Check if user is admin
     const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
