@@ -53,14 +53,20 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKeyValue = supabaseServiceKey as string;
 
     const authHeader = request.headers.get("authorization");
+    console.log("[Gemini API] Auth header present:", !!authHeader);
+
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.log("[Gemini API] Rejected: Missing or invalid auth header format");
+      return NextResponse.json({ error: "Unauthorized: Missing or invalid authorization header" }, { status: 401 });
     }
 
     const accessToken = authHeader.replace(/^Bearer\s+/i, "");
     if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.log("[Gemini API] Rejected: Empty access token after parsing");
+      return NextResponse.json({ error: "Unauthorized: Empty access token" }, { status: 401 });
     }
+
+    console.log("[Gemini API] Token length:", accessToken.length);
 
     const supabase = createClient(supabaseUrlValue, supabaseAnonKeyValue, {
       global: {
@@ -76,8 +82,11 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser(accessToken);
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.log("[Gemini API] Rejected: getUser failed", userError?.message || "No user returned");
+      return NextResponse.json({ error: `Unauthorized: ${userError?.message || "Invalid session"}` }, { status: 401 });
     }
+
+    console.log("[Gemini API] User authenticated:", user.id);
 
     // Check if user is admin
     const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
