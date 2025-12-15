@@ -199,6 +199,13 @@ function Content() {
     // Always get a fresh session to ensure the token is valid and refreshed
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
+    console.log("[streamGemini] Session check:", {
+      hasSession: !!sessionData.session,
+      hasAccessToken: !!sessionData.session?.access_token,
+      tokenLength: sessionData.session?.access_token?.length ?? 0,
+      sessionError: sessionError?.message ?? null
+    });
+
     if (sessionError) {
       throw new Error(`Session error: ${sessionError.message}. Please sign in again.`);
     }
@@ -210,6 +217,7 @@ function Content() {
     }
 
     headers.Authorization = `Bearer ${accessToken}`;
+    console.log("[streamGemini] Authorization header set, token length:", accessToken.length);
 
     const response = await fetch("/api/gemini", {
       method: "POST",
