@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import AdminAccessShell from "@/components/AdminAccessShell";
-import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { getFollowUpPrompt, type PromptOptions } from "@/lib/followUpPromptTemplate";
 
@@ -96,7 +95,8 @@ export default function AdminNewQuestionPage() {
 }
 
 function Content() {
-  const { session } = useAuth();
+  // Note: We don't use session from context - we always fetch fresh from supabase.auth.getSession()
+  // to ensure the token is valid and refreshed
   const [topics, setTopics] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [difficulties, setDifficulties] = useState<string[]>([]);
@@ -196,11 +196,14 @@ function Content() {
       Accept: "text/event-stream"
     };
 
-    let accessToken = session?.access_token ?? null;
-    if (!accessToken) {
-      const { data } = await supabase.auth.getSession();
-      accessToken = data.session?.access_token ?? null;
+    // Always get a fresh session to ensure the token is valid and refreshed
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw new Error(`Session error: ${sessionError.message}. Please sign in again.`);
     }
+
+    const accessToken = sessionData.session?.access_token ?? null;
 
     if (!accessToken) {
       throw new Error("Missing Supabase session. Sign in again to continue.");
@@ -360,11 +363,15 @@ function Content() {
       return;
     }
 
-    let accessToken = session?.access_token ?? null;
-    if (!accessToken) {
-      const { data } = await supabase.auth.getSession();
-      accessToken = data.session?.access_token ?? null;
+    // Always get a fresh session to ensure the token is valid and refreshed
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      setInsertStatus({ state: "error", message: `Session error: ${sessionError.message}. Please sign in again.` });
+      return;
     }
+
+    const accessToken = sessionData.session?.access_token ?? null;
 
     if (!accessToken) {
       setInsertStatus({ state: "error", message: "Missing Supabase session. Sign in again to continue." });
@@ -404,7 +411,7 @@ function Content() {
       const message = insertError instanceof Error ? insertError.message : "Unexpected error inserting records.";
       setInsertStatus({ state: "error", message });
     }
-  }, [geminiFollowUpResponse, insertStatements, insertStatus.state, session?.access_token]);
+  }, [geminiFollowUpResponse, insertStatements, insertStatus.state]);
 
   useEffect(() => {
     setInsertStatus({ state: "idle" });
