@@ -47,7 +47,7 @@ export default function AdminAccessShell({ children }: AdminAccessShellProps) {
           <div className="row" style={{ gap: 8 }}>
             <button className="btn primary" type="submit">Sign In</button>
           </div>
-          <p className="muted">Use a Supabase Auth email/password user. Create one in your project's Authentication tab.</p>
+          <p className="muted">Use a Supabase Auth email/password user. Create one in your project&apos;s Authentication tab.</p>
         </form>
 
         <div style={{ 
