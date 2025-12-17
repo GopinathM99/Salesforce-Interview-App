@@ -241,3 +241,56 @@ as $$
 $$;
 
 grant execute on function public.get_daily_gemini_usage_by_model() to authenticated;
+
+-- Get MCQ progress per category for the current user
+-- Returns total MCQ count and attempted count for each category
+create or replace function public.get_mcq_category_progress()
+returns table (
+  category text,
+  total_count bigint,
+  attempted_count bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    q.category::text as category,
+    count(distinct q.id) as total_count,
+    count(distinct qa.question_id) filter (where qa.user_id = auth.uid()) as attempted_count
+  from public.questions q
+  inner join public.multiple_choice_questions mcq on mcq.question_id = q.id
+  left join public.question_attempts qa on qa.question_id = q.id and qa.user_id = auth.uid()
+  where q.category is not null
+  group by q.category
+  order by q.category;
+$$;
+
+grant execute on function public.get_mcq_category_progress() to anon, authenticated;
+
+-- Get Flashcard progress per category for the current user
+-- Returns total question count and attempted count for each category (all questions, not just MCQs)
+create or replace function public.get_flashcard_category_progress()
+returns table (
+  category text,
+  total_count bigint,
+  attempted_count bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    q.category::text as category,
+    count(distinct q.id) as total_count,
+    count(distinct qa.question_id) filter (where qa.user_id = auth.uid()) as attempted_count
+  from public.questions q
+  left join public.question_attempts qa on qa.question_id = q.id and qa.user_id = auth.uid()
+  where q.category is not null
+  group by q.category
+  order by q.category;
+$$;
+
+grant execute on function public.get_flashcard_category_progress() to anon, authenticated;
