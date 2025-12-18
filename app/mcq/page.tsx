@@ -46,6 +46,7 @@ function McqContent() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [sentPrompt, setSentPrompt] = useState<string>("");
   const [showPrompt, setShowPrompt] = useState(false);
+  const [todayScore, setTodayScore] = useState<{ attempted: number; correct: number } | null>(null);
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,29 @@ function McqContent() {
     setLoading(false);
   }, [filters, userId]);
 
+  const loadTodayScore = useCallback(async () => {
+    if (!userId) {
+      setTodayScore(null);
+      return;
+    }
+    const { data, error } = await supabase.rpc("get_today_mcq_score", {
+      category_filter: filters.category
+    });
+    if (error) {
+      console.error("Failed to load today's score:", error);
+      return;
+    }
+    const result = (data as { attempted_today: number; correct_today: number }[] | null)?.[0];
+    if (result) {
+      setTodayScore({
+        attempted: result.attempted_today,
+        correct: result.correct_today
+      });
+    } else {
+      setTodayScore({ attempted: 0, correct: 0 });
+    }
+  }, [userId, filters.category]);
+
   useEffect(() => {
     // Update category filter when URL changes
     const category = searchParams.get("category");
@@ -107,6 +131,10 @@ function McqContent() {
   useEffect(() => {
     void loadRandom();
   }, [loadRandom]);
+
+  useEffect(() => {
+    void loadTodayScore();
+  }, [loadTodayScore]);
 
   useEffect(() => {
     const loadTopics = async () => {
@@ -169,6 +197,9 @@ function McqContent() {
     );
     if (error) {
       setAttemptError(error.message);
+    } else {
+      // Reload today's score after successful submission
+      void loadTodayScore();
     }
     setSavingAttempt(false);
   };
@@ -340,10 +371,10 @@ Please answer the user's question clearly and concisely, ideally within one or t
           </p>
         )}
         {filters.category && (
-          <div style={{ 
-            marginBottom: 16, 
-            padding: "12px 16px", 
-            backgroundColor: "rgba(59, 130, 246, 0.1)", 
+          <div style={{
+            marginBottom: 16,
+            padding: "12px 16px",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
             borderRadius: 8,
             display: "flex",
             justifyContent: "space-between",
@@ -354,11 +385,11 @@ Please answer the user's question clearly and concisely, ideally within one or t
               <span style={{ fontWeight: 500, color: "#cbd5e1" }}>Category:</span>
               <span style={{ color: "#3b82f6", fontWeight: 600 }}>{filters.category}</span>
             </div>
-            <Link 
-              href="/mcq/select" 
-              style={{ 
-                fontSize: "14px", 
-                color: "#3b82f6", 
+            <Link
+              href="/mcq/select"
+              style={{
+                fontSize: "14px",
+                color: "#3b82f6",
                 textDecoration: "none",
                 fontWeight: 500,
                 padding: "4px 8px",
@@ -372,7 +403,7 @@ Please answer the user's question clearly and concisely, ideally within one or t
             </Link>
           </div>
         )}
-        <div className="row" style={{ gap: 16, marginBottom: 8 }}>
+        <div className="row" style={{ gap: 16, marginBottom: 8, alignItems: "flex-end" }}>
           <div className="col">
             <label>Topic</label>
             <select value={filters.topic ?? ""} onChange={(e) => setFilters((f) => ({ ...f, topic: e.target.value || null }))}>
@@ -410,6 +441,27 @@ Please answer the user's question clearly and concisely, ideally within one or t
               ))}
             </select>
           </div>
+          {userId && todayScore && (
+            <div style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 24px",
+              backgroundColor: "rgba(34, 197, 94, 0.1)",
+              borderRadius: 6,
+              whiteSpace: "nowrap"
+            }}>
+              <span style={{ fontSize: "14px", fontWeight: 500, color: "#cbd5e1" }}>Today&apos;s Score:</span>
+              <span style={{
+                fontSize: "16px",
+                fontWeight: 700,
+                color: todayScore.attempted > 0 && todayScore.correct === todayScore.attempted ? "#4ade80" : "#22d3ee"
+              }}>
+                {todayScore.correct}/{todayScore.attempted}
+              </span>
+            </div>
+          )}
         </div>
 
         {error && <p className="muted">Error: {error}</p>}
@@ -584,7 +636,7 @@ Please answer the user's question clearly and concisely, ideally within one or t
                     </div>
                     <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <p style={{ fontSize: "12px", color: "#64748b", margin: 0, flex: 1 }}>
-                        AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 2.5 Flash</span>
+                        AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 3 Flash Preview</span>
                       </p>
                       <p style={{ fontSize: "12px", color: "#64748b", margin: 0, textAlign: "center" }}>
                         Press Ctrl+Enter to send

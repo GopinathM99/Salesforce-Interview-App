@@ -294,3 +294,28 @@ as $$
 $$;
 
 grant execute on function public.get_flashcard_category_progress() to anon, authenticated;
+
+-- Get today's MCQ score for the current user
+-- Returns attempted count and correct count for today
+create or replace function public.get_today_mcq_score(category_filter text default null)
+returns table (
+  attempted_today bigint,
+  correct_today bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    count(*)::bigint as attempted_today,
+    count(*) filter (where qa.is_correct = true)::bigint as correct_today
+  from public.question_attempts qa
+  inner join public.questions q on q.id = qa.question_id
+  inner join public.multiple_choice_questions mcq on mcq.question_id = q.id
+  where qa.user_id = auth.uid()
+    and qa.attempted_at::date = current_date
+    and (category_filter is null or q.category::text = category_filter);
+$$;
+
+grant execute on function public.get_today_mcq_score(text) to anon, authenticated;
