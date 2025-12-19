@@ -10,7 +10,7 @@ type ClientMessage = {
 export const runtime = "nodejs";
 
 const DEFAULT_MODEL_ID = "gemini-3-pro-preview";
-const FLASH_MODEL_ID = "gemini-2.5-flash";
+const FLASH_MODEL_ID = "gemini-3-flash-preview";
 const ALLOWED_MODEL_IDS = [DEFAULT_MODEL_ID, FLASH_MODEL_ID];
 const DAILY_LIMIT = 100; // Global daily limit across all users
 

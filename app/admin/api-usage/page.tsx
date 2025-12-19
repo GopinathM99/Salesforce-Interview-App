@@ -48,7 +48,7 @@ export default function ApiUsagePage() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatModel, setChatModel] = useState<string>("gemini-2.5-pro");
+  const [chatModel, setChatModel] = useState<string>("gemini-3-pro-preview");
   const [chatPrompt, setChatPrompt] = useState("");
   const [chatResponse, setChatResponse] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
@@ -283,8 +283,8 @@ export default function ApiUsagePage() {
 
   if (chatModels.length === 0) {
     chatModels.push(
-      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }
+      { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+      { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" }
     );
   }
 
