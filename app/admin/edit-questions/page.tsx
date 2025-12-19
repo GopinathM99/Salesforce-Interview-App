@@ -131,8 +131,12 @@ function Content({ ctx: _ctx }: ContentProps) {
   }, [loadDuplicateItems, showDuplicates]);
 
   const filteredItems = useMemo(() => {
+    // When searching by question number, don't apply any filters
+    if (questionNumberSearchActive) {
+      return items;
+    }
     return items.filter((item) => {
-      const matchesTopic = questionNumberSearchActive ? true : topicFilter ? item.topic === topicFilter : true;
+      const matchesTopic = topicFilter ? item.topic === topicFilter : true;
       const matchesDifficulty = difficultyFilter === "all" ? true : item.difficulty === difficultyFilter;
       return matchesTopic && matchesDifficulty;
     });
@@ -627,7 +631,7 @@ Please answer the user's question clearly and concisely, ideally within one or t
                                       </div>
                                       <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <p style={{ fontSize: "12px", color: "#64748b", margin: 0, flex: 1 }}>
-                                          AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 2.5 Flash</span>
+                                          AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 3 Flash Preview</span>
                                         </p>
                                         <p style={{ fontSize: "12px", color: "#64748b", margin: 0, textAlign: "center" }}>
                                           Press Ctrl+Enter to send
@@ -831,7 +835,7 @@ Please answer the user's question clearly and concisely, ideally within one or t
                             </div>
                             <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <p style={{ fontSize: "12px", color: "#64748b", margin: 0, flex: 1 }}>
-                                AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 2.5 Flash</span>
+                                AI Model: <span style={{ color: "#10b981", fontWeight: 500 }}>Gemini 3 Flash Preview</span>
                               </p>
                               <p style={{ fontSize: "12px", color: "#64748b", margin: 0, textAlign: "center" }}>
                                 Press Ctrl+Enter to send
