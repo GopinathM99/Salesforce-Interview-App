@@ -16,6 +16,16 @@ type Filters = {
   questionType: QuestionType | null;
 };
 
+type HistoryItem = {
+  question_id: string;
+  question_number: number | null;
+  question_text: string;
+  topic: string;
+  difficulty: string;
+  is_correct: boolean;
+  attempted_at: string;
+};
+
 const QUESTION_TYPES: QuestionType[] = ["Knowledge", "Scenarios"];
 
 function McqContent() {
@@ -47,6 +57,8 @@ function McqContent() {
   const [sentPrompt, setSentPrompt] = useState<string>("");
   const [showPrompt, setShowPrompt] = useState(false);
   const [todayScore, setTodayScore] = useState<{ attempted: number; correct: number } | null>(null);
+  const [todayHistory, setTodayHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(true);
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -122,6 +134,21 @@ function McqContent() {
     }
   }, [userId, filters.category]);
 
+  const loadTodayHistory = useCallback(async () => {
+    if (!userId) {
+      setTodayHistory([]);
+      return;
+    }
+    const { data, error } = await supabase.rpc("get_today_mcq_history", {
+      category_filter: filters.category
+    });
+    if (error) {
+      console.error("Failed to load today's history:", error);
+      return;
+    }
+    setTodayHistory((data as HistoryItem[]) ?? []);
+  }, [userId, filters.category]);
+
   useEffect(() => {
     // Update category filter when URL changes
     const category = searchParams.get("category");
@@ -135,6 +162,10 @@ function McqContent() {
   useEffect(() => {
     void loadTodayScore();
   }, [loadTodayScore]);
+
+  useEffect(() => {
+    void loadTodayHistory();
+  }, [loadTodayHistory]);
 
   useEffect(() => {
     const loadTopics = async () => {
@@ -198,8 +229,9 @@ function McqContent() {
     if (error) {
       setAttemptError(error.message);
     } else {
-      // Reload today's score after successful submission
+      // Reload today's score and history after successful submission
       void loadTodayScore();
+      void loadTodayHistory();
     }
     setSavingAttempt(false);
   };
@@ -354,8 +386,10 @@ Please answer the user's question clearly and concisely, ideally within one or t
   };
 
   return (
-    <div className="grid">
-      <div className="card">
+    <div className="mcq-layout">
+      {/* Main content */}
+      <div className="grid mcq-main">
+        <div className="card">
         <div
           className="row"
           style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
@@ -729,6 +763,135 @@ Please answer the user's question clearly and concisely, ideally within one or t
           </div>
         )}
       </div>
+    </div>
+
+      {/* History Section - Right Side (bottom on mobile/tablet) */}
+      {userId && todayHistory.length > 0 && (
+        <div className="card mcq-history">
+          <h3 style={{
+            margin: 0,
+            marginBottom: 12,
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#f1f5f9",
+            display: "flex",
+            alignItems: "center",
+            gap: 8
+          }}>
+            <span style={{ color: "#3b82f6" }}>Today&apos;s History</span>
+            <span style={{
+              fontSize: "12px",
+              color: "#64748b",
+              fontWeight: 400
+            }}>
+              ({todayHistory.length} attempted)
+            </span>
+          </h3>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              marginBottom: showHistory ? 12 : 0,
+              fontSize: "13px",
+              fontWeight: 500,
+              color: "#94a3b8",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              border: "1px solid rgba(59, 130, 246, 0.2)",
+              borderRadius: 6,
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            {showHistory ? "Hide History" : "Show History"}
+          </button>
+          {showHistory && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {todayHistory.map((item, idx) => (
+              <div
+                key={`${item.question_id}-${idx}`}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: `1px solid ${item.is_correct ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                  backgroundColor: item.is_correct
+                    ? "rgba(16, 185, 129, 0.08)"
+                    : "rgba(239, 68, 68, 0.08)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6
+                }}>
+                  <span style={{
+                    fontSize: "11px",
+                    color: "#64748b",
+                    fontWeight: 500
+                  }}>
+                    {item.question_number
+                      ? `#${item.question_number.toString().padStart(5, '0')}`
+                      : "—"
+                    }
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    fontWeight: 600,
+                    backgroundColor: item.is_correct
+                      ? "rgba(16, 185, 129, 0.2)"
+                      : "rgba(239, 68, 68, 0.2)",
+                    color: item.is_correct ? "#4ade80" : "#f87171"
+                  }}>
+                    {item.is_correct ? "Correct" : "Incorrect"}
+                  </span>
+                </div>
+                <p style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  lineHeight: 1.4,
+                  color: "#e2e8f0",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}>
+                  {item.question_text}
+                </p>
+                <div style={{
+                  marginTop: 6,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap"
+                }}>
+                  <span style={{
+                    fontSize: "10px",
+                    color: "#94a3b8",
+                    padding: "1px 6px",
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    borderRadius: 4
+                  }}>
+                    {item.topic}
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    color: "#94a3b8"
+                  }}>
+                    {new Date(item.attempted_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>}
+        </div>
+      )}
     </div>
   );
 }

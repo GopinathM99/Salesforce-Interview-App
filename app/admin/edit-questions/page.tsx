@@ -131,8 +131,12 @@ function Content({ ctx: _ctx }: ContentProps) {
   }, [loadDuplicateItems, showDuplicates]);
 
   const filteredItems = useMemo(() => {
+    // When searching by question number, don't apply any filters
+    if (questionNumberSearchActive) {
+      return items;
+    }
     return items.filter((item) => {
-      const matchesTopic = questionNumberSearchActive ? true : topicFilter ? item.topic === topicFilter : true;
+      const matchesTopic = topicFilter ? item.topic === topicFilter : true;
       const matchesDifficulty = difficultyFilter === "all" ? true : item.difficulty === difficultyFilter;
       return matchesTopic && matchesDifficulty;
     });

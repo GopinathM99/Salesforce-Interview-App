@@ -563,6 +563,46 @@
   .title {
     margin-top: 0;
   }
+
+  /* MCQ Layout - responsive */
+  .mcq-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  .mcq-main {
+    width: 100%;
+    max-width: 900px;
+    flex-shrink: 0;
+  }
+
+  .mcq-history {
+    width: 320px;
+    flex-shrink: 0;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    position: sticky;
+    top: 24px;
+  }
+
+  /* Tablet and mobile: stack vertically */
+  @media (max-width: 1024px) {
+    .mcq-layout {
+      flex-direction: column;
+    }
+
+    .mcq-main {
+      max-width: 100%;
+    }
+
+    .mcq-history {
+      width: 100%;
+      position: static;
+      max-height: none;
+      order: 1; /* Ensure history appears after main content */
+    }
+  }
 }
 
 @layer utilities {
