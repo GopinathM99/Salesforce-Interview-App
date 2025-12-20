@@ -67,6 +67,7 @@ export interface QuestionAttempt {
   id: string;
   user_id: string;
   question_id: string;
+  practice_mode: "mcq" | "flashcards";
   is_correct: boolean | null;
   attempted_at: string;
 }

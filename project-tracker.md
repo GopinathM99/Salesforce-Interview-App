@@ -54,6 +54,7 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 - [ ] Fix duplicate topics appearing (e.g., sharing rules)
 - [ ] MCQ: Show warning when submitting without selecting a choice
 - [ ] Add Question Type column (Knowledge vs Scenarios)
+- [ ] Make 'topic' a dependent field on 'categories'
 
 ### AI Features
 - [ ] AI Studio integration - auto-create questions and answers

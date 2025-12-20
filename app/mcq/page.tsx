@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import { Bookmark } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Difficulty, Question, QuestionType, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
@@ -59,6 +60,16 @@ function McqContent() {
   const [todayScore, setTodayScore] = useState<{ attempted: number; correct: number } | null>(null);
   const [todayHistory, setTodayHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(true);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkSaving, setBookmarkSaving] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+
+  const formatBookmarkError = (message: string) => {
+    if (message.includes("question_bookmarks") && message.includes("does not exist")) {
+      return "Bookmarks are not set up in Supabase yet. Run supabase/add_question_bookmarks.sql in the Supabase SQL editor.";
+    }
+    return message;
+  };
 
   const loadRandom = useCallback(async () => {
     setLoading(true);
@@ -74,6 +85,9 @@ function McqContent() {
     setAiError(null);
     setSentPrompt("");
     setShowPrompt(false);
+    setIsBookmarked(false);
+    setBookmarkSaving(false);
+    setBookmarkError(null);
     
     // Build the RPC payload - always include all parameters in correct order
     const payload = {
@@ -110,6 +124,79 @@ function McqContent() {
     }
     setLoading(false);
   }, [filters, userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const questionId = q?.id ?? null;
+
+    const loadBookmarkState = async () => {
+      if (!userId || !q) {
+        setIsBookmarked(false);
+        setBookmarkError(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("question_bookmarks")
+        .select("question_id")
+        .eq("user_id", userId)
+        .eq("question_id", q.id)
+        .eq("practice_mode", "mcq")
+        .maybeSingle();
+
+      if (cancelled || questionId !== q.id) return;
+      if (error) {
+        setBookmarkError(formatBookmarkError(error.message));
+        setIsBookmarked(false);
+        return;
+      }
+      setBookmarkError(null);
+      setIsBookmarked(Boolean(data));
+    };
+
+    void loadBookmarkState();
+    return () => {
+      cancelled = true;
+    };
+  }, [q, userId]);
+
+  const toggleBookmark = async () => {
+    if (!userId || !q) return;
+    setBookmarkSaving(true);
+    setBookmarkError(null);
+
+    if (isBookmarked) {
+      const { error } = await supabase
+        .from("question_bookmarks")
+        .delete()
+        .eq("user_id", userId)
+        .eq("question_id", q.id);
+      if (error) {
+        setBookmarkError(formatBookmarkError(error.message));
+      } else {
+        setIsBookmarked(false);
+      }
+      setBookmarkSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("question_bookmarks")
+      .upsert(
+        {
+          user_id: userId,
+          question_id: q.id,
+          practice_mode: "mcq"
+        },
+        { onConflict: "user_id,question_id,practice_mode" }
+      );
+
+    if (error) {
+      setBookmarkError(formatBookmarkError(error.message));
+    } else {
+      setIsBookmarked(true);
+    }
+    setBookmarkSaving(false);
+  };
 
   const loadTodayScore = useCallback(async () => {
     if (!userId) {
@@ -219,11 +306,12 @@ function McqContent() {
       {
         question_id: q.id,
         user_id: userId,
+        practice_mode: "mcq",
         is_correct: isCorrect,
         attempted_at: new Date().toISOString()
       },
       {
-        onConflict: "user_id,question_id"
+        onConflict: "user_id,question_id,practice_mode"
       }
     );
     if (error) {
@@ -501,6 +589,7 @@ Please answer the user's question clearly and concisely, ideally within one or t
         {error && <p className="muted">Error: {error}</p>}
         {attemptError && <p className="muted">Could not save attempt: {attemptError}</p>}
         {info && <p className="muted">{info}</p>}
+        {bookmarkError && <p className="muted">Bookmark: {bookmarkError}</p>}
 
         {q && (
           <div className="card" style={{ marginTop: 12 }}>
@@ -511,11 +600,40 @@ Please answer the user's question clearly and concisely, ideally within one or t
                 <span className="pill">Difficulty: {q.difficulty}</span>
                 {q.question_type && <span className="pill">Type: {q.question_type}</span>}
               </div>
-              {q.question_number && (
-                <span className="pill" style={{ fontWeight: 600, color: "#3b82f6", fontSize: "16px" }}>
-                  # {q.question_number.toString().padStart(5, '0')}
-                </span>
-              )}
+              <div className="row" style={{ gap: 8 }}>
+                {q.question_number && (
+                  <span className="pill" style={{ fontWeight: 600, color: "#3b82f6", fontSize: "16px" }}>
+                    # {q.question_number.toString().padStart(5, '0')}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => void toggleBookmark()}
+                  disabled={!userId || bookmarkSaving}
+                  title={!userId ? "Sign in to bookmark questions" : undefined}
+                  style={{
+                    padding: "8px 12px",
+                    fontSize: "13px",
+                    borderRadius: 999,
+                    opacity: !userId ? 0.6 : 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8
+                  }}
+                >
+                  <Bookmark
+                    aria-hidden
+                    style={{
+                      width: 16,
+                      height: 16,
+                      color: isBookmarked ? "#fbbf24" : "#94a3b8",
+                      fill: isBookmarked ? "#fbbf24" : "transparent"
+                    }}
+                  />
+                  {isBookmarked ? "Bookmarked" : "Bookmark"}
+                </button>
+              </div>
             </div>
             <h3 style={{ 
               marginTop: 8, 

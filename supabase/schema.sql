@@ -580,13 +580,65 @@ create table if not exists public.question_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   question_id uuid not null references public.questions (id) on delete cascade,
+  practice_mode text not null default 'mcq',
   is_correct boolean,
   attempted_at timestamptz not null default now(),
-  constraint question_attempts_unique_user_question unique (user_id, question_id)
+  constraint question_attempts_practice_mode_check check (practice_mode in ('mcq', 'flashcards')),
+  constraint question_attempts_unique_user_question_mode unique (user_id, question_id, practice_mode)
 );
 
-create index if not exists idx_question_attempts_user_question
-  on public.question_attempts (user_id, question_id);
+-- If the table existed from a previous schema, ensure practice_mode/constraints exist.
+alter table public.question_attempts
+  add column if not exists practice_mode text not null default 'mcq';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_attempts_practice_mode_check'
+      and conrelid = 'public.question_attempts'::regclass
+  ) then
+    alter table public.question_attempts
+      add constraint question_attempts_practice_mode_check
+      check (practice_mode in ('mcq', 'flashcards'));
+  end if;
+end$$;
+
+-- Backfill legacy attempts:
+-- Flashcards attempts were written with is_correct = null.
+update public.question_attempts
+set practice_mode = 'flashcards'
+where practice_mode = 'mcq'
+  and is_correct is null;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_attempts_unique_user_question'
+      and conrelid = 'public.question_attempts'::regclass
+  ) then
+    alter table public.question_attempts drop constraint question_attempts_unique_user_question;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_attempts_unique_user_question_mode'
+      and conrelid = 'public.question_attempts'::regclass
+  ) then
+    alter table public.question_attempts
+      add constraint question_attempts_unique_user_question_mode
+      unique (user_id, question_id, practice_mode);
+  end if;
+end$$;
+
+drop index if exists public.idx_question_attempts_user_question;
+
+create index if not exists idx_question_attempts_user_mode_question
+  on public.question_attempts (user_id, practice_mode, question_id);
 create index if not exists idx_question_attempts_question on public.question_attempts (question_id);
 
 alter table public.question_attempts enable row level security;
@@ -613,6 +665,94 @@ create policy "Users can update own attempts"
 drop policy if exists "Users can delete own attempts" on public.question_attempts;
 create policy "Users can delete own attempts"
   on public.question_attempts for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Track user bookmarks for questions
+create table if not exists public.question_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  question_id uuid not null references public.questions (id) on delete cascade,
+  practice_mode text not null default 'mcq',
+  created_at timestamptz not null default now(),
+  constraint question_bookmarks_practice_mode_check check (practice_mode in ('mcq', 'flashcards')),
+  constraint question_bookmarks_unique_user_question_mode unique (user_id, question_id, practice_mode)
+);
+
+-- If the table existed from a previous schema, ensure practice_mode/constraints exist.
+alter table public.question_bookmarks
+  add column if not exists practice_mode text not null default 'mcq';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_bookmarks_practice_mode_check'
+      and conrelid = 'public.question_bookmarks'::regclass
+  ) then
+    alter table public.question_bookmarks
+      add constraint question_bookmarks_practice_mode_check
+      check (practice_mode in ('mcq', 'flashcards'));
+  end if;
+end$$;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_bookmarks_unique_user_question'
+      and conrelid = 'public.question_bookmarks'::regclass
+  ) then
+    alter table public.question_bookmarks drop constraint question_bookmarks_unique_user_question;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'question_bookmarks_unique_user_question_mode'
+      and conrelid = 'public.question_bookmarks'::regclass
+  ) then
+    alter table public.question_bookmarks
+      add constraint question_bookmarks_unique_user_question_mode
+      unique (user_id, question_id, practice_mode);
+  end if;
+end$$;
+
+drop index if exists public.idx_question_bookmarks_user_question;
+
+create index if not exists idx_question_bookmarks_user_created_at
+  on public.question_bookmarks (user_id, practice_mode, created_at desc);
+create index if not exists idx_question_bookmarks_user_mode_question
+  on public.question_bookmarks (user_id, practice_mode, question_id);
+create index if not exists idx_question_bookmarks_question
+  on public.question_bookmarks (question_id);
+
+alter table public.question_bookmarks enable row level security;
+
+drop policy if exists "Users can view own bookmarks" on public.question_bookmarks;
+create policy "Users can view own bookmarks"
+  on public.question_bookmarks for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can add own bookmarks" on public.question_bookmarks;
+create policy "Users can add own bookmarks"
+  on public.question_bookmarks for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own bookmarks" on public.question_bookmarks;
+create policy "Users can update own bookmarks"
+  on public.question_bookmarks for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own bookmarks" on public.question_bookmarks;
+create policy "Users can delete own bookmarks"
+  on public.question_bookmarks for delete
   to authenticated
   using (auth.uid() = user_id);
 

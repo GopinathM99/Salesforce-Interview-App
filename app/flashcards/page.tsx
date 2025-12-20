@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Bookmark } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Difficulty, Question, QuestionType, RawQuestion } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/types";
@@ -36,6 +37,16 @@ function FlashcardsContent() {
   const [info, setInfo] = useState<string | null>(null);
   const [attemptError, setAttemptError] = useState<string | null>(null);
   const [savingAttempt, setSavingAttempt] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkSaving, setBookmarkSaving] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+
+  const formatBookmarkError = (message: string) => {
+    if (message.includes("question_bookmarks") && message.includes("does not exist")) {
+      return "Bookmarks are not set up in Supabase yet. Run supabase/add_question_bookmarks.sql in the Supabase SQL editor.";
+    }
+    return message;
+  };
 
   const recordAttempt = useCallback(
     async (question: Question | null) => {
@@ -46,11 +57,12 @@ function FlashcardsContent() {
         {
           question_id: question.id,
           user_id: userId,
+          practice_mode: "flashcards",
           is_correct: null,
           attempted_at: new Date().toISOString()
         },
         {
-          onConflict: "user_id,question_id"
+          onConflict: "user_id,question_id,practice_mode"
         }
       );
       if (error) {
@@ -67,6 +79,9 @@ function FlashcardsContent() {
     setReveal(false);
     setInfo(null);
     setAttemptError(null);
+    setIsBookmarked(false);
+    setBookmarkSaving(false);
+    setBookmarkError(null);
     
     // Build the RPC payload - always include all parameters in correct order
     const payload = {
@@ -98,6 +113,82 @@ function FlashcardsContent() {
     }
     setLoading(false);
   }, [filters, userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const questionId = q?.id ?? null;
+
+    const loadBookmarkState = async () => {
+      if (!userId || !q) {
+        setIsBookmarked(false);
+        setBookmarkError(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("question_bookmarks")
+        .select("question_id")
+        .eq("user_id", userId)
+        .eq("question_id", q.id)
+        .eq("practice_mode", "flashcards")
+        .maybeSingle();
+
+      if (cancelled || questionId !== q.id) return;
+      if (error) {
+        setBookmarkError(formatBookmarkError(error.message));
+        setIsBookmarked(false);
+        return;
+      }
+      setBookmarkError(null);
+      setIsBookmarked(Boolean(data));
+    };
+
+    void loadBookmarkState();
+    return () => {
+      cancelled = true;
+    };
+  }, [q, userId]);
+
+  const toggleBookmark = async () => {
+    if (!userId || !q) return;
+    setBookmarkSaving(true);
+    setBookmarkError(null);
+
+    if (isBookmarked) {
+      const { error } = await supabase
+        .from("question_bookmarks")
+        .delete()
+        .eq("user_id", userId)
+        .eq("question_id", q.id)
+        .eq("practice_mode", "flashcards");
+
+      if (error) {
+        setBookmarkError(formatBookmarkError(error.message));
+      } else {
+        setIsBookmarked(false);
+      }
+      setBookmarkSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("question_bookmarks")
+      .upsert(
+        {
+          user_id: userId,
+          question_id: q.id,
+          practice_mode: "flashcards"
+        },
+        { onConflict: "user_id,question_id,practice_mode" }
+      );
+
+    if (error) {
+      setBookmarkError(formatBookmarkError(error.message));
+    } else {
+      setIsBookmarked(true);
+    }
+    setBookmarkSaving(false);
+  };
 
   useEffect(() => {
     // Update category filter when URL changes
@@ -148,24 +239,50 @@ function FlashcardsContent() {
     void loadRandom();
   }, [loadRandom, q, recordAttempt]);
 
-  const meta = useMemo(() => {
-    if (!q) return null;
-    return (
-      <div className="row" style={{ gap: 8, justifyContent: "space-between", alignItems: "center" }}>
-        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          {q.category && <span className="pill">Category: {q.category}</span>}
-          <span className="pill">Topic: {q.topic}</span>
-          <span className="pill">Difficulty: {q.difficulty}</span>
-          {q.question_type && <span className="pill">Type: {q.question_type}</span>}
-        </div>
+  const meta = q ? (
+    <div className="row" style={{ gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        {q.category && <span className="pill">Category: {q.category}</span>}
+        <span className="pill">Topic: {q.topic}</span>
+        <span className="pill">Difficulty: {q.difficulty}</span>
+        {q.question_type && <span className="pill">Type: {q.question_type}</span>}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
         {q.question_number && (
           <span className="pill" style={{ fontWeight: 600, color: "#3b82f6", fontSize: "14px" }}>
             # {q.question_number.toString().padStart(5, '0')}
           </span>
         )}
+        <button
+          type="button"
+          className="btn"
+          onClick={() => void toggleBookmark()}
+          disabled={!userId || bookmarkSaving}
+          title={!userId ? "Sign in to bookmark questions" : undefined}
+          style={{
+            padding: "8px 12px",
+            fontSize: "13px",
+            borderRadius: 999,
+            opacity: !userId ? 0.6 : 1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8
+          }}
+        >
+          <Bookmark
+            aria-hidden
+            style={{
+              width: 16,
+              height: 16,
+              color: isBookmarked ? "#fbbf24" : "#94a3b8",
+              fill: isBookmarked ? "#fbbf24" : "transparent"
+            }}
+          />
+          {isBookmarked ? "Bookmarked" : "Bookmark"}
+        </button>
       </div>
-    );
-  }, [q]);
+    </div>
+  ) : null;
 
   return (
     <div className="grid">
@@ -269,6 +386,7 @@ function FlashcardsContent() {
 
         {error && <p className="muted">Error: {error}</p>}
         {attemptError && <p className="muted">Could not save attempt: {attemptError}</p>}
+        {bookmarkError && <p className="muted">Bookmark: {bookmarkError}</p>}
         {info && <p className="muted">{info}</p>}
 
         {q ? (
