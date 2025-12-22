@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { Bookmark } from "lucide-react";
@@ -63,6 +63,7 @@ function McqContent() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkSaving, setBookmarkSaving] = useState(false);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  const loadRandomRequestId = useRef(0);
 
   const formatBookmarkError = (message: string) => {
     if (message.includes("question_bookmarks") && message.includes("does not exist")) {
@@ -72,6 +73,8 @@ function McqContent() {
   };
 
   const loadRandom = useCallback(async () => {
+    const requestId = loadRandomRequestId.current + 1;
+    loadRandomRequestId.current = requestId;
     setLoading(true);
     setError(null);
     setInfo(null);
@@ -101,28 +104,34 @@ function McqContent() {
       question_types: filters.questionType ? [filters.questionType] : null
     };
     
-    const { data, error } = await supabase.rpc("random_questions", payload);
-    if (error) {
-      setError(error.message);
-      setQ(null);
-    } else {
-      const itemRaw = (data as RawQuestion[] | null)?.[0] ?? null;
-      const normalized = itemRaw ? normalizeQuestion(itemRaw) : null;
-      if (!normalized) {
-        setInfo(
-          userId
-            ? "You're all caught up! You've attempted every matching question."
-            : "No MCQ found. Add choices in Supabase."
-        );
-        setQ(null);
-      } else if (!normalized.mcq) {
-        setInfo("Question is missing MCQ choices. Update it in the admin panel.");
+    try {
+      const { data, error } = await supabase.rpc("random_questions", payload);
+      if (requestId !== loadRandomRequestId.current) return;
+      if (error) {
+        setError(error.message);
         setQ(null);
       } else {
-        setQ(normalized);
+        const itemRaw = (data as RawQuestion[] | null)?.[0] ?? null;
+        const normalized = itemRaw ? normalizeQuestion(itemRaw) : null;
+        if (!normalized) {
+          setInfo(
+            userId
+              ? "You're all caught up! You've attempted every matching question."
+              : "No MCQ found. Add choices in Supabase."
+          );
+          setQ(null);
+        } else if (!normalized.mcq) {
+          setInfo("Question is missing MCQ choices. Update it in the admin panel.");
+          setQ(null);
+        } else {
+          setQ(normalized);
+        }
+      }
+    } finally {
+      if (requestId === loadRandomRequestId.current) {
+        setLoading(false);
       }
     }
-    setLoading(false);
   }, [filters, userId]);
 
   useEffect(() => {

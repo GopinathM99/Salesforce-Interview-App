@@ -23,6 +23,8 @@ function FlashcardsBookmarksContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookmarkSaving, setBookmarkSaving] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [showDeleteToast, setShowDeleteToast] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkRow[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
 
@@ -45,6 +47,12 @@ function FlashcardsBookmarksContent() {
   useEffect(() => {
     setReveal(false);
   }, [selectedQuestionId]);
+
+  useEffect(() => {
+    if (!userId || bookmarks.length === 0) {
+      setShowDeleteToast(false);
+    }
+  }, [userId, bookmarks.length]);
 
   useEffect(() => {
     if (!userId) {
@@ -167,6 +175,32 @@ function FlashcardsBookmarksContent() {
     setBookmarkSaving(false);
   };
 
+  const removeAllBookmarks = async () => {
+    if (!userId) return;
+    setDeletingAll(true);
+    setError(null);
+
+    const { error: deleteError } = await supabase
+      .from("question_bookmarks")
+      .delete()
+      .eq("user_id", userId)
+      .eq("practice_mode", "flashcards");
+
+    if (deleteError) {
+      setError(formatBookmarkError(deleteError.message));
+      setDeletingAll(false);
+      return;
+    }
+
+    setBookmarks([]);
+    setQuestions([]);
+    setSelectedQuestionId(null);
+    setReveal(false);
+    setShowDeleteToast(false);
+    router.replace("/flashcards/bookmarks");
+    setDeletingAll(false);
+  };
+
   return (
     <div className="mcq-layout">
       <div className="grid mcq-main">
@@ -176,6 +210,17 @@ function FlashcardsBookmarksContent() {
               My Bookmarks
             </h2>
             <div className="row" style={{ gap: 8 }}>
+              {userId && bookmarks.length > 0 && (
+                <button
+                  type="button"
+                  className="btn danger"
+                  disabled={deletingAll || loading}
+                  onClick={() => setShowDeleteToast(true)}
+                  style={{ padding: "8px 12px" }}
+                >
+                  Delete All
+                </button>
+              )}
               <Link className="btn" href="/flashcards/select">
                 Back to Flashcards
               </Link>
@@ -319,6 +364,57 @@ function FlashcardsBookmarksContent() {
               })}
             </div>
           )}
+        </div>
+      )}
+      {showDeleteToast && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            display: "grid",
+            placeItems: "center",
+            backgroundColor: "rgba(15, 23, 42, 0.65)",
+            padding: 16
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: "min(92vw, 420px)",
+              padding: 18,
+              borderColor: "rgba(248, 113, 113, 0.35)",
+              backgroundColor: "rgba(15, 23, 42, 0.98)",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)"
+            }}
+          >
+            <div style={{ fontWeight: 600, color: "#f8fafc", marginBottom: 6, fontSize: 16 }}>
+              Delete all bookmarks?
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+              This action cannot be undone.
+            </div>
+            <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={deletingAll}
+                onClick={() => setShowDeleteToast(false)}
+                style={{ padding: "8px 12px" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={deletingAll}
+                onClick={() => void removeAllBookmarks()}
+                style={{ padding: "8px 12px" }}
+              >
+                {deletingAll ? "Deleting..." : "Yes, delete"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
