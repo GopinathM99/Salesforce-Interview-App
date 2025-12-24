@@ -8,6 +8,7 @@ export type Category =
   | "CPQ"
   | "Litify"
   | "Omnistudio"
+  | "Data Cloud"
   | "Agentforce Concepts"
   | "Agentforce and Service Cloud"
   | "Agentforce and Data Cloud"

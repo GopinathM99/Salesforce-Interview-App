@@ -166,6 +166,7 @@ begin
       'CPQ',
       'Litify',
       'Omnistudio',
+      'Data Cloud',
       'Agentforce Concepts',
       'Agentforce and Service Cloud',
       'Agentforce and Data Cloud',
@@ -245,6 +246,15 @@ begin
       where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Omnistudio'
     ) then
       alter type public.question_category add value 'Omnistudio';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e
+      join pg_type t on t.oid = e.enumtypid
+      join pg_namespace n on n.oid = t.typnamespace
+      where n.nspname = 'public' and t.typname = 'question_category' and e.enumlabel = 'Data Cloud'
+    ) then
+      alter type public.question_category add value 'Data Cloud';
     end if;
 
     if not exists (
@@ -374,6 +384,7 @@ begin
         'CPQ',
         'Litify',
         'Omnistudio',
+        'Data Cloud',
         'Agentforce Concepts',
         'Agentforce and Service Cloud',
         'Agentforce and Data Cloud',
@@ -395,6 +406,7 @@ begin
       when category = 'CPQ' then 'CPQ'::public.question_category
       when category = 'Litify' then 'Litify'::public.question_category
       when category = 'Omnistudio' then 'Omnistudio'::public.question_category
+      when category = 'Data Cloud' then 'Data Cloud'::public.question_category
       when category = 'Agentforce Concepts' then 'Agentforce Concepts'::public.question_category
       when category = 'Agentforce and Service Cloud' then 'Agentforce and Service Cloud'::public.question_category
       when category = 'Agentforce and Data Cloud' then 'Agentforce and Data Cloud'::public.question_category
