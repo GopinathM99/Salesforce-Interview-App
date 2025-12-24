@@ -84,6 +84,11 @@ as $$
         from public.question_attempts qa
         where qa.question_id = q.id
           and qa.user_id = auth.uid()
+          and (
+            (mcq_only and qa.practice_mode = 'mcq')
+            or (flashcards_only and qa.practice_mode = 'flashcards')
+            or (not mcq_only and not flashcards_only)
+          )
       )
     )
   order by random()
@@ -261,7 +266,10 @@ as $$
     count(distinct qa.question_id) filter (where qa.user_id = auth.uid()) as attempted_count
   from public.questions q
   inner join public.multiple_choice_questions mcq on mcq.question_id = q.id
-  left join public.question_attempts qa on qa.question_id = q.id and qa.user_id = auth.uid()
+  left join public.question_attempts qa
+    on qa.question_id = q.id
+    and qa.user_id = auth.uid()
+    and qa.practice_mode = 'mcq'
   where q.category is not null
   group by q.category
   order by q.category;
@@ -287,7 +295,10 @@ as $$
     count(distinct q.id) as total_count,
     count(distinct qa.question_id) filter (where qa.user_id = auth.uid()) as attempted_count
   from public.questions q
-  left join public.question_attempts qa on qa.question_id = q.id and qa.user_id = auth.uid()
+  left join public.question_attempts qa
+    on qa.question_id = q.id
+    and qa.user_id = auth.uid()
+    and qa.practice_mode = 'flashcards'
   where q.category is not null
   group by q.category
   order by q.category;
@@ -315,6 +326,8 @@ as $$
   inner join public.multiple_choice_questions mcq on mcq.question_id = q.id
   where qa.user_id = auth.uid()
     and qa.attempted_at::date = current_date
+    and qa.practice_mode = 'mcq'
+    and qa.is_correct is not null
     and (category_filter is null or q.category::text = category_filter);
 $$;
 
@@ -350,6 +363,8 @@ as $$
   inner join public.multiple_choice_questions mcq on mcq.question_id = q.id
   where qa.user_id = auth.uid()
     and qa.attempted_at::date = current_date
+    and qa.practice_mode = 'mcq'
+    and qa.is_correct is not null
     and (category_filter is null or q.category::text = category_filter)
   order by qa.attempted_at desc;
 $$;

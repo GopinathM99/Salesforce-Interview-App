@@ -78,9 +78,14 @@ export default function McqCategorySelectPage() {
           style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
         >
           <h2 className="title" style={{ marginBottom: 0 }}>Select Category</h2>
-          <Link className="btn" href="/">
-            Back to Home
-          </Link>
+          <div className="row" style={{ gap: 8 }}>
+            <Link className="btn" href="/mcq/bookmarks">
+              My Bookmarks
+            </Link>
+            <Link className="btn" href="/">
+              Back to Home
+            </Link>
+          </div>
         </div>
         <p className="muted" style={{ marginBottom: 24 }}>
           Choose a category to start practicing multiple choice questions.
@@ -157,4 +162,3 @@ export default function McqCategorySelectPage() {
     </div>
   );
 }
-
