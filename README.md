@@ -10,12 +10,16 @@
 - In the Supabase SQL editor, run files in `supabase/` in this order:
   - `schema.sql`
   - `functions.sql`
+  - `live_agent.sql` (Live Agent Prep storage)
   - `seed.sql` (optional but helpful)
 - Copy `.env.local.example` to `.env.local` and set:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY` (required for Gemini rate limiting)
   - `GEMINI_API_KEY` (optional, only if using Gemini question generation)
+  - `OPENAI_API_KEY` (required for Live Agent Prep token minting)
+  - `OPENAI_REALTIME_MODEL` (optional, defaults to `gpt-realtime`)
+  - `OPENAI_REALTIME_TOKEN_TTL_SECONDS` (optional, defaults to 600)
 - Install dependencies and run locally:
   - `npm install`
   - `npm run dev`
@@ -74,6 +78,13 @@ The app includes optional AI-powered question generation using Google's Gemini 2
 - Model: `gemini-3-pro-preview` with streaming responses
 - Global rate limit enforced via service role queries to bypass RLS
 - Requires `SUPABASE_SERVICE_ROLE_KEY` for global usage counting
+
+**Live Agent Prep (Phase 1)**
+
+- **API endpoint**: `POST /api/realtime/session` (requires authentication)
+- **Purpose**: Creates a short-lived OpenAI Realtime client secret for WebRTC sessions.
+- **Auth**: Use the Supabase access token as `Authorization: Bearer <token>`.
+- **Config**: Controlled via `OPENAI_API_KEY`, `OPENAI_REALTIME_MODEL`, and `OPENAI_REALTIME_TOKEN_TTL_SECONDS`.
 
 **SQL Template Automation:**
 

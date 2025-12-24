@@ -61,6 +61,8 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 - [x] Show API call metrics separately for each AI model
 - [x] Check if ping to all models working (admin page)
 
+### Live Agent Prep
+- [x] Chat and Live Agent Prep
 
 ### Admin Features
 - [ ] Reset any user's progress (checkboxes with select all)
@@ -89,7 +91,7 @@ A Salesforce interview preparation application with quiz features, AI-powered as
   - [ ] If no related questions, send from other topics
 
 ### Content & Integrations
-- [ ] Add more clouds (Litify, CPQ, etc.)
+- [x] Add more clouds (Litify, CPQ, etc.)
 - [ ] Coding section improvements
 
 ---
