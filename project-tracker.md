@@ -49,24 +49,18 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ### Quiz & Question Features
 - [ ] MCQ: Allow users to re-attempt questions they got wrong
-- [ ] Allow users to save questions
+- [x] Allow users to save questions
 - [ ] Allow users to add comments on questions
 - [ ] Fix duplicate topics appearing (e.g., sharing rules)
-- [ ] MCQ: Show warning when submitting without selecting a choice
-- [ ] Add Question Type column (Knowledge vs Scenarios)
+- [x] MCQ: Show warning when submitting without selecting a choice
+- [x] Add Question Type column (Knowledge vs Scenarios)
 
 ### AI Features
-- [ ] AI Studio integration - auto-create questions and answers
-- [ ] Save user questions to Gemini
-- [ ] Limit Gemini uses for logged-in users
-- [ ] Ask follow-up questions
-- [ ] Change regular chat to 'gemini flash' model
-- [ ] Show API call metrics separately for each AI model
-- [ ] Check if ping to all models working (admin page)
-- [ ] Live Gemini response modes:
-  - [ ] Concise (brief answer)
-  - [ ] Default (balanced detail)
-  - [ ] Detailed (full explanation with examples)
+- [x] Ask follow-up questions
+- [x] Change regular chat to 'gemini flash' model
+- [x] Show API call metrics separately for each AI model
+- [x] Check if ping to all models working (admin page)
+
 
 ### Admin Features
 - [ ] Reset any user's progress (checkboxes with select all)
