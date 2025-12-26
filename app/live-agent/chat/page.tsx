@@ -32,13 +32,6 @@ const makeId = () => {
   return `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 };
 
-const parseTopics = (value: string) => {
-  const normalized = value
-    .split(",")
-    .map((topic) => topic.trim())
-    .filter(Boolean);
-  return Array.from(new Set(normalized));
-};
 
 const normalizeQuestionCount = (value: number) => {
   if (!Number.isFinite(value)) return DEFAULT_QUESTION_COUNT;
@@ -105,7 +98,9 @@ export default function LiveAgentChatPage() {
   const [customRole, setCustomRole] = useState("");
   const [selectedInterviewType, setSelectedInterviewType] = useState("mixed");
   const [selectedLevel, setSelectedLevel] = useState("Mid-level");
-  const [focusTopics, setFocusTopics] = useState("");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(true);
   const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
   const [questionsAsked, setQuestionsAsked] = useState(0);
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
@@ -121,6 +116,24 @@ export default function LiveAgentChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Fetch available topics from Supabase
+  useEffect(() => {
+    const fetchTopics = async () => {
+      try {
+        const response = await fetch("/api/topics");
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableTopics(data.topics || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch topics", error);
+      } finally {
+        setTopicsLoading(false);
+      }
+    };
+    void fetchTopics();
+  }, []);
 
   const persistMessage = useCallback(
     async ({
@@ -278,7 +291,7 @@ export default function LiveAgentChatPage() {
 
     try {
       const roleToSend = selectedRole === "custom" ? customRole.trim() : selectedRole;
-      const topicsToSend = parseTopics(focusTopics);
+      const topicsToSend = selectedTopics;
       const questionCountToSend = normalizeQuestionCount(questionCount);
 
       const sessionRecordResponse = await fetch("/api/live-agent/session", {
@@ -376,7 +389,7 @@ export default function LiveAgentChatPage() {
   }, [
     callGeminiStream,
     customRole,
-    focusTopics,
+    selectedTopics,
     persistMessage,
     questionCount,
     selectedInterviewType,
@@ -514,7 +527,16 @@ export default function LiveAgentChatPage() {
     if (storedCustomRole) setCustomRole(storedCustomRole);
     if (storedType) setSelectedInterviewType(storedType);
     if (storedLevel) setSelectedLevel(storedLevel);
-    if (storedTopics) setFocusTopics(storedTopics);
+    if (storedTopics) {
+      try {
+        const parsed = JSON.parse(storedTopics);
+        if (Array.isArray(parsed)) {
+          setSelectedTopics(parsed);
+        }
+      } catch {
+        // Ignore invalid JSON
+      }
+    }
     if (storedQuestionCount) {
       const parsedCount = Number.parseInt(storedQuestionCount, 10);
       if (Number.isFinite(parsedCount)) {
@@ -529,16 +551,16 @@ export default function LiveAgentChatPage() {
     window.localStorage.setItem("live_agent_custom_role", customRole);
     window.localStorage.setItem("live_agent_type", selectedInterviewType);
     window.localStorage.setItem("live_agent_level", selectedLevel);
-    window.localStorage.setItem("live_agent_topics", focusTopics);
+    window.localStorage.setItem("live_agent_topics", JSON.stringify(selectedTopics));
     window.localStorage.setItem("live_agent_question_count", String(questionCount));
-  }, [selectedRole, customRole, selectedInterviewType, selectedLevel, focusTopics, questionCount]);
+  }, [selectedRole, customRole, selectedInterviewType, selectedLevel, selectedTopics, questionCount]);
 
   const clearSavedSettings = useCallback(() => {
     setSelectedRole("Salesforce Developer");
     setCustomRole("");
     setSelectedInterviewType("mixed");
     setSelectedLevel("Mid-level");
-    setFocusTopics("");
+    setSelectedTopics([]);
     setQuestionCount(DEFAULT_QUESTION_COUNT);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("live_agent_role");
@@ -615,6 +637,7 @@ export default function LiveAgentChatPage() {
             <button
               className="btn"
               onClick={clearSavedSettings}
+              style={{ marginLeft: "auto", padding: "10px 12px", background: "rgba(59, 130, 246, 0.35)" }}
             >
               Clear saved settings
             </button>
@@ -751,17 +774,65 @@ export default function LiveAgentChatPage() {
                   ))}
                 </select>
               </label>
-              <label style={{ display: "grid", gap: 6, alignContent: "start" }}>
+              <label style={{ display: "grid", gap: 6, alignContent: "start", gridColumn: "1 / -1" }}>
                 <span style={{ fontWeight: 600 }}>Focus topics</span>
-                <input
-                  type="text"
-                  value={focusTopics}
-                  onChange={(event) => setFocusTopics(event.target.value)}
-                  placeholder="e.g., Apex, LWC, SOQL"
-                  style={{ padding: "8px 12px" }}
-                />
+                {topicsLoading ? (
+                  <span className="muted" style={{ fontSize: 14 }}>Loading topics...</span>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      padding: "8px 12px",
+                      background: "rgba(15, 23, 42, 0.4)",
+                      borderRadius: 8,
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      maxHeight: 200,
+                      overflowY: "auto"
+                    }}
+                  >
+                    {availableTopics.map((topic) => {
+                      const isSelected = selectedTopics.includes(topic);
+                      return (
+                        <button
+                          key={topic}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTopics((prev) =>
+                              isSelected
+                                ? prev.filter((t) => t !== topic)
+                                : [...prev, topic]
+                            );
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 16,
+                            border: isSelected
+                              ? "1px solid rgba(59, 130, 246, 0.8)"
+                              : "1px solid rgba(148, 163, 184, 0.3)",
+                            background: isSelected
+                              ? "rgba(59, 130, 246, 0.25)"
+                              : "rgba(15, 23, 42, 0.4)",
+                            color: isSelected ? "#93c5fd" : "#cbd5e1",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: isSelected ? 600 : 400,
+                            transition: "all 0.15s ease"
+                          }}
+                        >
+                          {topic}
+                        </button>
+                      );
+                    })}
+                    {availableTopics.length === 0 && (
+                      <span className="muted" style={{ fontSize: 13 }}>No topics available</span>
+                    )}
+                  </div>
+                )}
                 <span className="muted" style={{ fontSize: 12 }}>
-                  Comma-separated topics help focus the interview.
+                  Click to select multiple topics to focus the interview.
+                  {selectedTopics.length > 0 && ` Selected: ${selectedTopics.length}`}
                 </span>
               </label>
             </div>

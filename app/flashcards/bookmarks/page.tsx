@@ -305,7 +305,7 @@ function FlashcardsBookmarksContent() {
               )}
 
               <div className="row" style={{ marginTop: 12, gap: 8 }}>
-                <button className="btn reveal-btn" onClick={() => setReveal((r) => !r)}>
+                <button className="btn primary" onClick={() => setReveal((r) => !r)}>
                   {reveal ? "Hide Answer" : "Reveal Answer"}
                 </button>
               </div>

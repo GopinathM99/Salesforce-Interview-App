@@ -21,27 +21,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const lastLoggedSignInRef = useRef<string | null>(null);
+  const sessionFetchedRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     const syncSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (isMounted) {
-        setSession(data.session);
-        setLoading(false);
+      // Set a 5 second timeout - if auth takes longer, stop loading to allow retry
+      timeoutId = setTimeout(() => {
+        if (isMounted && !sessionFetchedRef.current) {
+          console.warn("Auth session check timed out after 5 seconds");
+          setLoading(false);
+        }
+      }, 5000);
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        sessionFetchedRef.current = true;
+        if (isMounted) {
+          setSession(data.session);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Failed to get session:", error);
+        if (isMounted) {
+          setLoading(false);
+        }
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
     };
 
     void syncSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      sessionFetchedRef.current = true;
       setSession(newSession);
       setLoading(false);
     });
 
     return () => {
       isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       listener?.subscription.unsubscribe();
     };
   }, []);
@@ -163,10 +189,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
-    if (error) {
+    // If session is already missing, treat as successful sign out
+    if (error && !error.message?.includes("session missing")) {
       setLoading(false);
       throw error;
     }
+    // Clear local session state regardless
+    setSession(null);
+    sessionFetchedRef.current = false;
     setLoading(false);
   }, []);
 
