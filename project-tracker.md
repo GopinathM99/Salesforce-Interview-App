@@ -63,6 +63,9 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ### Live Agent Prep
 - [x] Chat and Live Agent Prep
+- [ ] Add AI Chat. AI Chat will recieve the Transcript from the interview.
+- [ ] Questions are being repeated. Try questions from the database only. for both Audio and Chat.
+- [ ]
 
 ### Admin Features
 - [ ] Reset any user's progress (checkboxes with select all)

@@ -40,7 +40,7 @@ Open http://localhost:3000 to use the app.
 
 The app includes automatic logout functionality to enhance security for authenticated users:
 
-- **Inactivity Timeout**: Users are automatically logged out after 5 minutes of inactivity
+- **Inactivity Timeout**: Users are automatically logged out after 15 minutes of inactivity
 - **Activity Tracking**: Monitors mouse movements, keyboard input, clicks, touches, and scrolls
 - **Automatic Reset**: Any user interaction resets the inactivity timer
 - **Authenticated Users Only**: Tracking only occurs when a user is signed in
