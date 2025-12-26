@@ -170,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  // Automatically logout user after 5 minutes of inactivity
+  // Automatically logout user after 15 minutes of inactivity
   useInactivityLogout({
-    timeout: 300000, // 5 minutes in milliseconds
+    timeout: 900000, // 15 minutes in milliseconds
     onInactive: () => {
       void signOut();
     },
