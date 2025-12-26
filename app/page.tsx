@@ -201,6 +201,45 @@ export default function Page() {
               Start MCQs
             </Link>
           </div>
+          <div className="card">
+            <h3>Live Agent Prep</h3>
+            <p>Practice a mock interview with a live AI interviewer by voice or text.</p>
+            {user ? (
+              <Link
+                className="btn primary home-btn"
+                href="/live-agent"
+                style={{ marginTop: 12, display: "inline-block" }}
+              >
+                Open Live Agent
+              </Link>
+            ) : (
+              <>
+                <button
+                  className="btn"
+                  style={{ marginTop: 12, display: "inline-block", cursor: "not-allowed" }}
+                  disabled
+                  aria-disabled
+                >
+                  Open Live Agent
+                </button>
+                <p
+                  style={{
+                    marginTop: 8,
+                    color: "#92400e",
+                    backgroundColor: "rgba(245, 158, 11, 0.1)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    fontStyle: "italic",
+                    fontWeight: 600,
+                    padding: "8px 12px",
+                    borderRadius: 12,
+                    display: "inline-block"
+                  }}
+                >
+                  Log in to access live mock interviews.
+                </p>
+              </>
+            )}
+          </div>
           <div
             className="card"
             style={!user || limitReached ? { opacity: 0.5 } : undefined}
