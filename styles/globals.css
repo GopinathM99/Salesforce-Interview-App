@@ -393,6 +393,15 @@
     text-decoration: none !important;
   }
 
+  .btn:disabled,
+  .btn:disabled:hover {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+    background: #1f2937;
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
   .grid {
     display: grid;
     gap: 16px;

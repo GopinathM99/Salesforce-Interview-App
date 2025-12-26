@@ -124,6 +124,59 @@ export interface CodingQuestion {
   updated_at: string;
 }
 
+export interface LiveAgentSessionMetadata {
+  user_id: string;
+  role: string;
+  interview_type: string;
+  level?: string;
+  topics?: string[];
+  question_count?: number;
+}
+
+export interface LiveAgentSessionRequest {
+  role?: string;
+  interview_type?: string;
+  level?: string;
+  topics?: string[];
+  question_count?: number;
+}
+
+export interface LiveAgentSession {
+  id: string;
+  user_id: string;
+  role: string;
+  interview_type: string;
+  level: string | null;
+  model: string | null;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface LiveAgentMessage {
+  id: string;
+  session_id: string;
+  user_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  source: "text" | "audio" | "transcript";
+  created_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface LiveAgentFeedback {
+  id: string;
+  session_id: string;
+  user_id: string;
+  question_text: string | null;
+  score: number | null;
+  rubric: Record<string, unknown>;
+  feedback: string;
+  created_at: string;
+}
+
 const toChoices = (value: unknown): string[] | null => {
   if (!Array.isArray(value)) return null;
   return value.map((v) => String(v));
