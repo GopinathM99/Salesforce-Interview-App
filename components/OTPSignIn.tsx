@@ -27,7 +27,7 @@ export function OTPSignIn({ onClose }: OTPSignInProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, flow: "signin" }),
       });
 
       const data = await response.json();
@@ -56,7 +56,7 @@ export function OTPSignIn({ onClose }: OTPSignInProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, code: otp }),
+        body: JSON.stringify({ email, code: otp, flow: "signin" }),
       });
 
       const data = await response.json();
