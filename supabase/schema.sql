@@ -517,6 +517,7 @@ create policy "Users can log their Gemini usage"
 
 create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
+  username text,
   first_name text,
   last_name text,
   email citext not null,
@@ -526,6 +527,9 @@ create table if not exists public.user_profiles (
 );
 
 alter table if exists public.user_profiles
+  add column if not exists username text;
+
+alter table if exists public.user_profiles
   add column if not exists updated_at timestamptz not null default now();
 
 create index if not exists idx_user_profiles_last_signed_in
@@ -533,6 +537,10 @@ create index if not exists idx_user_profiles_last_signed_in
 
 create unique index if not exists user_profiles_email_unique
   on public.user_profiles (lower(email));
+
+create unique index if not exists user_profiles_username_unique
+  on public.user_profiles (lower(username))
+  where username is not null;
 
 alter table public.user_profiles enable row level security;
 

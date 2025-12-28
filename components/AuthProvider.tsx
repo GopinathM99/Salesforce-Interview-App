@@ -12,6 +12,16 @@ type AuthContextValue = {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithOTP: (magicLink: string) => Promise<void>;
+  signUpWithPassword: (payload: {
+    email: string;
+    password: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+  }) => Promise<void>;
+  signInWithPassword: (payload: { email: string; password: string }) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -118,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const { first, last } = pickNameParts();
+    const username = deriveMetaValue(["username", "preferred_username", "nickname", "user_name"]);
     const email = currentUser.email ?? ((currentUser.user_metadata ?? {}).email as string | undefined) ?? "";
     const signInMarker = currentUser.last_sign_in_at ?? currentUser.created_at ?? currentUser.id;
 
@@ -128,7 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .rpc("log_user_sign_in", {
         first_name: first ?? null,
         last_name: last ?? null,
-        email
+        email,
+        username: username ?? null
       })
       .then(({ error }) => {
         if (error) {
@@ -186,6 +198,145 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signUpWithPassword = useCallback(
+    async ({
+      email,
+      password,
+      username,
+      firstName,
+      lastName
+    }: {
+      email: string;
+      password: string;
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+    }) => {
+      setLoading(true);
+      const redirectTo =
+        process.env.NEXT_PUBLIC_SITE_URL ??
+        (typeof window !== "undefined" ? window.location.origin : undefined);
+
+      const dataPayload: Record<string, string> = {};
+      if (username) {
+        dataPayload.username = username;
+      }
+      if (firstName) {
+        dataPayload.first_name = firstName;
+      }
+      if (lastName) {
+        dataPayload.last_name = lastName;
+      }
+      const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      if (fullName) {
+        dataPayload.full_name = fullName;
+      }
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: Object.keys(dataPayload).length > 0 ? dataPayload : undefined,
+          emailRedirectTo: redirectTo
+        }
+      });
+
+      if (error) {
+        setLoading(false);
+        throw error;
+      }
+
+      setLoading(false);
+    },
+    []
+  );
+
+  const signInWithPassword = useCallback(
+    async ({ email, password }: { email: string; password: string }) => {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setLoading(false);
+        throw error;
+      }
+      setLoading(false);
+    },
+    []
+  );
+
+  const resendVerification = useCallback(async (email: string) => {
+    setLoading(true);
+    const redirectTo =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (typeof window !== "undefined" ? window.location.origin : undefined);
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: redirectTo
+      }
+    });
+
+    if (error) {
+      setLoading(false);
+      throw error;
+    }
+
+    setLoading(false);
+  }, []);
+
+  const updateUsername = useCallback(
+    async (username: string) => {
+      const trimmed = username.trim();
+      if (!trimmed) {
+        throw new Error("Username is required");
+      }
+      if (!session?.user) {
+        throw new Error("No active session");
+      }
+
+      setLoading(true);
+
+      const email =
+        session.user.email ?? ((session.user.user_metadata ?? {}).email as string | undefined) ?? "";
+
+      if (!email) {
+        setLoading(false);
+        throw new Error("Email is required to update username");
+      }
+
+      const { error: profileError } = await supabase
+        .from("user_profiles")
+        .upsert(
+          {
+            user_id: session.user.id,
+            email,
+            username: trimmed,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (profileError) {
+        setLoading(false);
+        throw profileError;
+      }
+
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { username: trimmed, full_name: trimmed }
+      });
+
+      if (authError) {
+        setLoading(false);
+        throw authError;
+      }
+
+      setLoading(false);
+    },
+    [session]
+  );
+
   const signOut = useCallback(async () => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
@@ -217,9 +368,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signInWithGoogle,
       signInWithOTP,
+      signUpWithPassword,
+      signInWithPassword,
+      resendVerification,
+      updateUsername,
       signOut
     }),
-    [session, loading, signInWithGoogle, signInWithOTP, signOut]
+    [
+      session,
+      loading,
+      signInWithGoogle,
+      signInWithOTP,
+      signUpWithPassword,
+      signInWithPassword,
+      resendVerification,
+      updateUsername,
+      signOut
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

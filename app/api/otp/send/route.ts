@@ -86,7 +86,7 @@ function generateOTPEmailHTML(code: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const { email, flow } = await request.json();
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -104,20 +104,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedEmail = email.toLowerCase();
+    const resolvedFlow = flow === 'signup' ? 'signup' : 'signin';
+
     const supabase = getSupabaseClient();
 
-    // Check if email exists in user_profiles
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('email, user_id')
-      .eq('email', email.toLowerCase())
-      .single();
+    if (resolvedFlow === 'signin') {
+      // Check if email exists in user_profiles
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('email, user_id')
+        .eq('email', normalizedEmail)
+        .single();
 
-    if (profileError || !userProfile) {
-      return NextResponse.json(
-        { error: 'This email doesn\'t exist in database.\nFirst Time Users have to use Google Sign-In' },
-        { status: 404 }
-      );
+      if (profileError || !userProfile) {
+        return NextResponse.json(
+          { error: 'This email doesn\'t exist in database.\nFirst Time Users have to use Google Sign-In' },
+          { status: 404 }
+        );
+      }
+    } else {
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('email')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingProfile?.email) {
+        return NextResponse.json(
+          { error: 'An account with this email already exists. Please sign in.' },
+          { status: 409 }
+        );
+      }
     }
 
     // Generate OTP code
@@ -127,7 +145,7 @@ export async function POST(request: NextRequest) {
     const { error: insertError } = await supabase
       .from('otp_codes')
       .insert({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         code: otpCode,
       });
 
@@ -142,14 +160,14 @@ export async function POST(request: NextRequest) {
     // Send email with OTP code
     const mailOptions = {
       from: `"Salesforce Interview Prep" <${process.env.GMAIL_USER}>`,
-      to: email,
+      to: normalizedEmail,
       subject: '🔐 Your One-Time Sign-In Code',
       html: generateOTPEmailHTML(otpCode),
     };
 
     try {
       await transporter.sendMail(mailOptions);
-      console.log(`OTP code sent successfully to ${email}`);
+      console.log(`OTP code sent successfully to ${normalizedEmail}`);
     } catch (emailError) {
       console.error('Error sending OTP email:', emailError);
       return NextResponse.json(

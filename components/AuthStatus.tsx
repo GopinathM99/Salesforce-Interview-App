@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthProvider";
 import { User } from "lucide-react";
 import { OTPSignIn } from "./OTPSignIn";
+import { UsernameModal } from "./UsernameModal";
+import { PasswordAuthModal } from "./PasswordAuthModal";
 
 export function AuthStatus() {
-  const { user, loading, signInWithGoogle, signOut } = useAuth();
+  const { user, loading, signInWithGoogle, signOut, resendVerification } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showOTPModal, setShowOTPModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordModalMode, setPasswordModalMode] = useState<"signup" | "signin">("signup");
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const isEmailVerified = user ? Boolean(user.email_confirmed_at ?? user.confirmed_at) : false;
+  const currentUsername = user?.user_metadata?.username ?? user?.user_metadata?.full_name ?? "";
+  const displayName = currentUsername || user?.email || "";
 
   const handleSignIn = async () => {
     setError(null);
@@ -132,8 +140,52 @@ export function AuthStatus() {
                 }}
               >
                 <span className="pill" title={user.email ?? undefined} style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                  Signed in as {user.user_metadata.full_name ?? user.email}
+                  Signed in as {displayName}
                 </span>
+                {!isEmailVerified && (
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      background: "rgba(245, 158, 11, 0.12)",
+                      border: "1px solid rgba(245, 158, 11, 0.35)",
+                      color: "rgba(245, 158, 11, 0.95)",
+                      fontSize: 12,
+                      textAlign: "center"
+                    }}
+                  >
+                    Email not verified — provisional access
+                  </div>
+                )}
+                {!isEmailVerified && user.email && (
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      setError(null);
+                      try {
+                        await resendVerification(user.email ?? "");
+                      } catch (err) {
+                        const message = err instanceof Error ? err.message : "Failed to resend verification email";
+                        setError(message);
+                      }
+                    }}
+                    disabled={loading}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Resend verification email
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowUsernameModal(true);
+                  }}
+                  disabled={loading}
+                  style={{ cursor: "pointer" }}
+                >
+                  Update username
+                </Button>
                 <Button
                   variant="secondary"
                   onClick={handleSignOut}
@@ -215,6 +267,18 @@ export function AuthStatus() {
                     variant="secondary"
                     onClick={() => {
                       setMenuOpen(false);
+                      setPasswordModalMode("signin");
+                      setShowPasswordModal(true);
+                    }}
+                    disabled={loading}
+                    style={{ cursor: "pointer", textAlign: "left" }}
+                  >
+                    Sign in
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setMenuOpen(false);
                       void handleSignIn();
                     }}
                     disabled={loading}
@@ -233,12 +297,36 @@ export function AuthStatus() {
                   >
                     Sign In with One Time Code
                   </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setPasswordModalMode("signup");
+                      setShowPasswordModal(true);
+                    }}
+                    disabled={loading}
+                    style={{ cursor: "pointer", textAlign: "left" }}
+                  >
+                    Sign up
+                  </Button>
                 </div>
               )}
             </div>
           </div>
           {showOTPModal && <OTPSignIn onClose={() => setShowOTPModal(false)} />}
+          {showPasswordModal && (
+            <PasswordAuthModal
+              onClose={() => setShowPasswordModal(false)}
+              initialMode={passwordModalMode}
+            />
+          )}
         </>
+      )}
+      {showUsernameModal && (
+        <UsernameModal
+          onClose={() => setShowUsernameModal(false)}
+          initialUsername={currentUsername}
+        />
       )}
     </div>
   );
