@@ -177,6 +177,25 @@ export interface LiveAgentFeedback {
   created_at: string;
 }
 
+export interface InspirationQuestion {
+  id: string;
+  question_text: string;
+  topic: string;
+  difficulty: string;
+  question_type: string;
+}
+
+export interface InspirationQuestionsResponse {
+  questions: InspirationQuestion[];
+  meta: {
+    requested_count: number;
+    fetched_count: number;
+    distribution: Record<string, number>;
+    fallback_used: boolean;
+    note?: string;
+  };
+}
+
 const toChoices = (value: unknown): string[] | null => {
   if (!Array.isArray(value)) return null;
   return value.map((v) => String(v));

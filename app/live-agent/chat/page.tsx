@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/AuthProvider";
+import type { InspirationQuestion } from "@/lib/types";
 
 type ChatMessage = {
   id: string;
@@ -47,6 +48,7 @@ const buildInterviewerSystemPrompt = (options: {
   questionCount: number;
   questionsAsked: number;
   isFirstMessage: boolean;
+  inspirationQuestions?: InspirationQuestion[];
 }) => {
   const topicsLine = options.topics?.length
     ? `Focus on these topics: ${options.topics.join(", ")}.`
@@ -61,12 +63,37 @@ const buildInterviewerSystemPrompt = (options: {
     ? "This is the last question. After the candidate answers, provide final feedback and a brief summary of their performance, then conclude the interview."
     : "After the candidate answers, provide brief constructive feedback (2-3 bullet points) with a score out of 5, then ask the next question.";
 
+  // Build inspiration section from database questions
+  let inspirationSection = "";
+  if (options.inspirationQuestions && options.inspirationQuestions.length > 0) {
+    const conceptsList = options.inspirationQuestions
+      .map((q, i) => `${i + 1}. [${q.topic}/${q.question_type}] ${q.question_text}`)
+      .join("\n");
+
+    inspirationSection = `
+REFERENCE QUESTIONS FOR INSPIRATION:
+The following are sample questions from our database covering key concepts. Use these as INSPIRATION ONLY - create your own original questions that test similar concepts but are phrased differently:
+
+${conceptsList}
+
+IMPORTANT: Do NOT repeat these questions verbatim. Instead:
+- Identify the underlying concept being tested
+- Create a new, original question that evaluates the same knowledge area
+- Adapt the difficulty and framing to match the candidate's ${options.level} experience level
+- You may combine concepts from multiple reference questions into one integrated question
+`;
+  } else if (options.interviewType !== "behavioral" && options.topics?.length) {
+    inspirationSection = `
+Note: No specific reference questions available for the selected topics. Generate original questions based on your knowledge of ${options.topics.join(", ")} concepts appropriate for a ${options.level} level candidate.
+`;
+  }
+
   return `You are a professional Salesforce interviewer conducting a mock interview for a ${options.role} position at the ${options.level} level.
 
 Interview type: ${options.interviewType}
 ${topicsLine}
 ${questionProgress}
-
+${inspirationSection}
 Instructions:
 - Be professional, encouraging, and constructive
 - Ask one question at a time and wait for the candidate's response
@@ -104,6 +131,7 @@ export default function LiveAgentChatPage() {
   const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
   const [questionsAsked, setQuestionsAsked] = useState(0);
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [inspirationQuestions, setInspirationQuestions] = useState<InspirationQuestion[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -280,6 +308,48 @@ export default function LiveAgentChatPage() {
     [session?.access_token]
   );
 
+  const fetchInspirationQuestions = useCallback(
+    async (
+      topics: string[],
+      level: string,
+      interviewType: string,
+      count: number
+    ): Promise<InspirationQuestion[]> => {
+      if (!session?.access_token) return [];
+
+      // Skip fetching for behavioral interviews - AI generates these
+      if (interviewType === "behavioral") return [];
+
+      try {
+        const response = await fetch("/api/live-agent/questions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            topics,
+            level,
+            interview_type: interviewType,
+            question_count: count
+          })
+        });
+
+        if (!response.ok) {
+          console.warn("Failed to fetch inspiration questions:", response.status);
+          return [];
+        }
+
+        const data = await response.json();
+        return data.questions || [];
+      } catch (err) {
+        console.warn("Error fetching inspiration questions:", err);
+        return [];
+      }
+    },
+    [session?.access_token]
+  );
+
   const startSession = useCallback(async () => {
     if (!session?.access_token) {
       setError("Please sign in to start a chat session.");
@@ -293,6 +363,15 @@ export default function LiveAgentChatPage() {
       const roleToSend = selectedRole === "custom" ? customRole.trim() : selectedRole;
       const topicsToSend = selectedTopics;
       const questionCountToSend = normalizeQuestionCount(questionCount);
+
+      // Fetch inspiration questions from database
+      const fetchedQuestions = await fetchInspirationQuestions(
+        topicsToSend,
+        selectedLevel,
+        selectedInterviewType,
+        questionCountToSend
+      );
+      setInspirationQuestions(fetchedQuestions);
 
       const sessionRecordResponse = await fetch("/api/live-agent/session", {
         method: "POST",
@@ -342,7 +421,8 @@ export default function LiveAgentChatPage() {
         topics: topicsToSend.length > 0 ? topicsToSend : undefined,
         questionCount: questionCountToSend,
         questionsAsked: 0,
-        isFirstMessage: true
+        isFirstMessage: true,
+        inspirationQuestions: fetchedQuestions
       });
 
       const assistantMessageId = makeId();
@@ -389,6 +469,7 @@ export default function LiveAgentChatPage() {
   }, [
     callGeminiStream,
     customRole,
+    fetchInspirationQuestions,
     selectedTopics,
     persistMessage,
     questionCount,
@@ -428,7 +509,8 @@ export default function LiveAgentChatPage() {
         topics: sessionInfo.topics,
         questionCount: currentQuestionCount,
         questionsAsked: questionsAsked,
-        isFirstMessage: false
+        isFirstMessage: false,
+        inspirationQuestions: inspirationQuestions
       });
 
       // Build messages array with conversation history
@@ -493,6 +575,7 @@ export default function LiveAgentChatPage() {
     conversationHistory,
     endSessionRecord,
     inputValue,
+    inspirationQuestions,
     isLoading,
     persistMessage,
     questionsAsked,
@@ -584,6 +667,7 @@ export default function LiveAgentChatPage() {
     setSessionInfo(null);
     setQuestionsAsked(0);
     setError(null);
+    setInspirationQuestions([]);
   }, []);
 
   const isRoleValid = selectedRole !== "custom" || customRole.trim().length > 1;
