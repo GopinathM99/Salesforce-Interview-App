@@ -14,7 +14,7 @@ function getSupabaseClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, code } = await request.json();
+    const { email, code, flow, password, username, firstName, lastName } = await request.json();
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
@@ -31,12 +31,14 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseClient();
+    const normalizedEmail = email.toLowerCase();
+    const resolvedFlow = flow === 'signup' ? 'signup' : 'signin';
 
     // Find valid OTP code
     const { data: otpRecords, error: otpError } = await supabase
       .from('otp_codes')
       .select('*')
-      .eq('email', email.toLowerCase())
+      .eq('email', normalizedEmail)
       .eq('code', code)
       .eq('verified', false)
       .gt('expires_at', new Date().toISOString())
@@ -73,37 +75,158 @@ export async function POST(request: NextRequest) {
       console.error('Error updating OTP code:', updateError);
     }
 
-    // Get user profile to find the user_id
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('user_id, email, first_name, last_name')
-      .eq('email', email.toLowerCase())
-      .single();
+    let userProfile:
+      | { user_id: string; email: string; first_name: string | null; last_name: string | null }
+      | null = null;
 
-    if (profileError || !userProfile) {
-      return NextResponse.json(
-        { error: 'User profile not found' },
-        { status: 404 }
+    if (resolvedFlow === 'signup') {
+      if (!password || typeof password !== 'string') {
+        return NextResponse.json(
+          { error: 'Password is required' },
+          { status: 400 }
+        );
+      }
+      if (!username || typeof username !== 'string') {
+        return NextResponse.json(
+          { error: 'Username is required' },
+          { status: 400 }
+        );
+      }
+      if (!firstName || typeof firstName !== 'string') {
+        return NextResponse.json(
+          { error: 'First name is required' },
+          { status: 400 }
+        );
+      }
+      if (!lastName || typeof lastName !== 'string') {
+        return NextResponse.json(
+          { error: 'Last name is required' },
+          { status: 400 }
+        );
+      }
+
+      const trimmedUsername = username.trim();
+      const trimmedFirstName = firstName.trim();
+      const trimmedLastName = lastName.trim();
+
+      if (!trimmedUsername || !trimmedFirstName || !trimmedLastName) {
+        return NextResponse.json(
+          { error: 'All profile fields are required' },
+          { status: 400 }
+        );
+      }
+
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('user_id, email')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingProfile?.email) {
+        return NextResponse.json(
+          { error: 'An account with this email already exists. Please sign in.' },
+          { status: 409 }
+        );
+      }
+
+      const { data: existingUsername } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .ilike('username', trimmedUsername)
+        .maybeSingle();
+
+      if (existingUsername?.user_id) {
+        return NextResponse.json(
+          { error: 'That username is already taken.' },
+          { status: 409 }
+        );
+      }
+
+      const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          username: trimmedUsername,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
+          full_name: `${trimmedFirstName} ${trimmedLastName}`.trim()
+        }
+      });
+
+      if (createError || !createdUser?.user) {
+        console.error('Error creating auth user:', createError);
+        return NextResponse.json(
+          { error: createError?.message || 'Failed to create account' },
+          { status: 500 }
+        );
+      }
+
+      const now = new Date().toISOString();
+      const { error: profileInsertError } = await supabase
+        .from('user_profiles')
+        .upsert(
+          {
+            user_id: createdUser.user.id,
+            email: normalizedEmail,
+            username: trimmedUsername,
+            first_name: trimmedFirstName,
+            last_name: trimmedLastName,
+            first_signed_in_at: now,
+            last_signed_in_at: now,
+            updated_at: now
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (profileInsertError) {
+        console.error('Error creating user profile:', profileInsertError);
+        return NextResponse.json(
+          { error: 'Failed to create user profile' },
+          { status: 500 }
+        );
+      }
+
+      userProfile = {
+        user_id: createdUser.user.id,
+        email: normalizedEmail,
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName
+      };
+    } else {
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('user_id, email, first_name, last_name')
+        .eq('email', normalizedEmail)
+        .single();
+
+      if (profileError || !existingProfile) {
+        return NextResponse.json(
+          { error: 'User profile not found' },
+          { status: 404 }
+        );
+      }
+
+      userProfile = existingProfile;
+
+      // Get the user from auth.users to generate a session
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        existingProfile.user_id
       );
-    }
 
-    // Get the user from auth.users to generate a session
-    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
-      userProfile.user_id
-    );
-
-    if (authUserError || !authUser.user) {
-      console.error('Error fetching auth user:', authUserError);
-      return NextResponse.json(
-        { error: 'Failed to authenticate user' },
-        { status: 500 }
-      );
+      if (authUserError || !authUser.user) {
+        console.error('Error fetching auth user:', authUserError);
+        return NextResponse.json(
+          { error: 'Failed to authenticate user' },
+          { status: 500 }
+        );
+      }
     }
 
     // Generate a session token for the user
     const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
-      email: email.toLowerCase(),
+      email: normalizedEmail,
     });
 
     if (sessionError || !sessionData) {
@@ -118,10 +241,10 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'OTP verified successfully',
       user: {
-        id: userProfile.user_id,
-        email: userProfile.email,
-        first_name: userProfile.first_name,
-        last_name: userProfile.last_name,
+        id: userProfile?.user_id,
+        email: userProfile?.email,
+        first_name: userProfile?.first_name,
+        last_name: userProfile?.last_name,
       },
       magicLink: sessionData.properties.action_link,
     });
