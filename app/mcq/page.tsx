@@ -688,19 +688,14 @@ Please answer the user's question clearly and concisely, ideally within one or t
                 >
                   {savingAttempt ? "Saving…" : "Submit"}
                 </button>
-                <button className="btn" onClick={() => void loadRandom()} disabled={loading}>
+                <button className="btn next-btn" onClick={() => void loadRandom()} disabled={loading}>
                   {loading ? "Loading…" : "Next Random"}
                 </button>
               </div>
               {q.mcq && !showAskAI && (
                 <button
-                  className="btn"
+                  className="btn reveal-btn"
                   onClick={() => setShowAskAI(true)}
-                  style={{
-                    backgroundColor: "#3b82f6",
-                    color: "white",
-                    border: "none"
-                  }}
                 >
                   Ask AI
                 </button>

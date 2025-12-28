@@ -230,18 +230,8 @@ export default function QuestionForm({ initial, topics = [], categories = [], on
           </div>
           {onAskAI && (
             <button
-              className="btn"
+              className={askAIActive ? "btn" : "btn reveal-btn"}
               onClick={onAskAI}
-              style={{
-                background: askAIActive
-                  ? "linear-gradient(135deg, #1e293b 0%, #334155 100%)"
-                  : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                color: "white",
-                borderColor: askAIActive ? "rgba(59, 130, 246, 0.3)" : "#10b981",
-                boxShadow: askAIActive
-                  ? "0 2px 4px rgba(0, 0, 0, 0.1)"
-                  : "0 4px 12px rgba(16, 185, 129, 0.3)"
-              }}
             >
               {askAIActive ? "Close AI" : "Ask AI"}
             </button>

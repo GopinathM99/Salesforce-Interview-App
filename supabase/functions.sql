@@ -160,11 +160,13 @@ grant execute on function public.list_question_types() to anon, authenticated;
 
 -- Track user sessions
 drop function if exists public.log_user_sign_in(text, text, text);
+drop function if exists public.log_user_sign_in(text, text, text, text);
 
 create or replace function public.log_user_sign_in(
   first_name text default null,
   last_name text default null,
-  email text default null
+  email text default null,
+  username text default null
 )
 returns void
 language sql
@@ -173,6 +175,7 @@ set search_path = public
 as $$
   insert into public.user_profiles (
     user_id,
+    username,
     first_name,
     last_name,
     email,
@@ -182,6 +185,7 @@ as $$
   )
   values (
     auth.uid(),
+    nullif(username, ''),
     nullif(first_name, ''),
     nullif(last_name, ''),
     coalesce(nullif(email, ''), auth.jwt() ->> 'email'),
@@ -191,6 +195,7 @@ as $$
   )
   on conflict (user_id) do update
     set
+      username = coalesce(excluded.username, public.user_profiles.username),
       first_name = coalesce(excluded.first_name, public.user_profiles.first_name),
       last_name = coalesce(excluded.last_name, public.user_profiles.last_name),
       email = coalesce(excluded.email, public.user_profiles.email),
@@ -199,7 +204,7 @@ as $$
       updated_at = now();
 $$;
 
-grant execute on function public.log_user_sign_in(text, text, text) to authenticated;
+grant execute on function public.log_user_sign_in(text, text, text, text) to authenticated;
 
 -- Get daily Gemini API usage statistics for the last 30 days
 create or replace function public.get_daily_gemini_usage()

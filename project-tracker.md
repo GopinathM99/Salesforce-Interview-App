@@ -43,8 +43,8 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 ### Authentication & User Management
 - [ ] Username and password sign up
   - [ ] Send verification emails
-- [ ] One-time code login (6 digits sent to email)
-- [ ] Add browser favicon/icon
+- [x] One-time code login (6 digits sent to email)
+- [x] Add browser favicon/icon
 - [ ] If logout from Admin panel, redirect to Home page
 
 ### Quiz & Question Features
@@ -63,14 +63,13 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ### Live Agent Prep
 - [x] Chat and Live Agent Prep
-- [ ] Add AI Chat. AI Chat will recieve the Transcript from the interview.
-- [ ] Questions are being repeated. Try questions from the database only. for both Audio and Chat.
+- [x] Add AI Chat. AI Chat will recieve the Transcript from the interview.
+- [x] Questions are being repeated. Try questions from the database only. for both Audio and Chat.
 - [ ]
 
 ### Admin Features
-- [ ] Reset any user's progress (checkboxes with select all)
-- [ ] Daily/monthly user visits tracking
-- [ ] Show API calls per day in chart on admin page
+- [x] Daily/monthly user visits tracking
+- [x] Show API calls per day in chart on admin page
 
 ### UI/UX Improvements
 - [ ] Improve UI - make it beautiful
@@ -81,13 +80,11 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ### Subscriptions & Daily Challenges
 - [ ] Subscribe to daily challenges
-  - [ ] Remember user preferences
-  - [ ] Send email with daily challenges
-  - [ ] Answers at bottom of email
-  - [ ] Mention topics covered and notification frequency in email
+  - [x] Remember user preferences
+  - [x] Send email with daily challenges
   - [ ] Remind users about general questions if category is empty
   - [ ] Reveal answers with Question #
-  - [ ] "Send now" button with subscription selection
+  - [x] "Send now" button with subscription selection
   - [ ] Email questions should not count as attempts
   - [ ] Allow users to unsubscribe
   - [ ] Mobile app different setup
