@@ -11,6 +11,7 @@
   - `schema.sql`
   - `functions.sql`
   - `live_agent.sql` (Live Agent Prep storage)
+  - `cleanup_orphaned_records.sql` (optional scheduled cleanup)
   - `seed.sql` (optional but helpful)
 - Copy `.env.local.example` to `.env.local` and set:
   - `NEXT_PUBLIC_SUPABASE_URL`
@@ -61,6 +62,15 @@ This feature helps protect user accounts by automatically ending sessions when d
 - Use the "Admin Users" card on `/admin` to add or remove additional admins by entering their first name, last name, and login email.
 - Create new questions or edit/delete existing ones. MCQs are created by checking "Is Multiple Choice", adding choices, and setting the correct index (saved into the dedicated `multiple_choice_questions` table).
 - Topic dropdowns across the app pull from the DB via the `list_topics()` RPC.
+
+**User Deletion (Supabase Auth)**
+
+- Always delete users from **Supabase Auth** (`auth.users`). This is the source of truth.
+- Deleting from `public.user_profiles` alone leaves the auth user (and related rows) behind.
+- `on delete cascade` relationships remove attempts, bookmarks, profiles, live-agent data, etc.
+- A cleanup trigger also removes email-based rows like `subscription_preferences`, `email_delivery_logs`, `unsubscribe_tokens`, and `otp_codes`.
+- Admin users cannot be deleted from `public.admin_users`; the database raises `Admins cannot be deleted.` on delete.
+- Optional safety net: `cleanup_orphaned_records.sql` schedules a daily cleanup of orphaned rows by `user_id` (email-only subscriptions are preserved).
 
 **Gemini AI Question Generation**
 
