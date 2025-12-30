@@ -97,6 +97,23 @@ create policy "Admins can manage admin users"
   using (public.is_admin())
   with check (public.is_admin());
 
+-- Prevent deletion of admin users (all roles)
+drop trigger if exists prevent_admin_user_delete on public.admin_users;
+drop function if exists public.prevent_admin_user_delete();
+
+create or replace function public.prevent_admin_user_delete()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'Admins cannot be deleted.';
+end;
+$$;
+
+create trigger prevent_admin_user_delete
+before delete on public.admin_users
+for each row execute function public.prevent_admin_user_delete();
+
 -- PostgreSQL does not support `CREATE TYPE IF NOT EXISTS`.
 -- Use a DO block to create the enum only if it doesn't already exist.
 do $$
@@ -969,6 +986,90 @@ create policy "Service role can update unsubscribe tokens"
   to service_role
   using (true)
   with check (true);
+
+-- Clean up related data when an auth user is deleted
+drop trigger if exists on_auth_user_deleted on auth.users;
+drop function if exists public.handle_auth_user_delete();
+
+create or replace function public.handle_auth_user_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.subscription_preferences
+  where user_id = old.id
+     or (old.email is not null and lower(email) = lower(old.email));
+
+  delete from public.otp_codes
+  where old.email is not null
+    and lower(email) = lower(old.email);
+
+  return old;
+end;
+$$;
+
+create trigger on_auth_user_deleted
+after delete on auth.users
+for each row execute function public.handle_auth_user_delete();
+
+-- Periodic cleanup for orphaned rows (safety net)
+create or replace function public.cleanup_orphaned_records()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if to_regclass('public.live_agent_messages') is not null then
+    execute 'delete from public.live_agent_messages lam
+      where not exists (select 1 from auth.users u where u.id = lam.user_id)';
+  end if;
+
+  if to_regclass('public.live_agent_feedback') is not null then
+    execute 'delete from public.live_agent_feedback laf
+      where not exists (select 1 from auth.users u where u.id = laf.user_id)';
+  end if;
+
+  if to_regclass('public.live_agent_sessions') is not null then
+    execute 'delete from public.live_agent_sessions las
+      where not exists (select 1 from auth.users u where u.id = las.user_id)';
+  end if;
+
+  delete from public.question_attempts qa
+  where not exists (select 1 from auth.users u where u.id = qa.user_id);
+
+  delete from public.question_bookmarks qb
+  where not exists (select 1 from auth.users u where u.id = qb.user_id);
+
+  delete from public.gemini_usage_logs gul
+  where not exists (select 1 from auth.users u where u.id = gul.user_id);
+
+  delete from public.user_profiles up
+  where not exists (select 1 from auth.users u where u.id = up.user_id);
+
+  delete from public.subscription_preferences sp
+  where sp.user_id is not null
+    and not exists (select 1 from auth.users u where u.id = sp.user_id);
+end;
+$$;
+
+-- Schedule cleanup daily at 03:00 UTC if pg_cron is available
+create extension if not exists pg_cron;
+
+do $$
+begin
+  if not exists (
+    select 1 from cron.job where jobname = 'cleanup-orphans'
+  ) then
+    perform cron.schedule(
+      'cleanup-orphans',
+      '0 3 * * *',
+      'select public.cleanup_orphaned_records();'
+    );
+  end if;
+end$$;
 
 -- Coding Q&A table for programming questions
 create table if not exists public.coding_questions (
