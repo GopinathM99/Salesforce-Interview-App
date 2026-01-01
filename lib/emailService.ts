@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { randomBytes } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
 function getSupabaseClient() {
@@ -316,8 +317,8 @@ export async function sendEmailToSubscriber(
  * Generate unsubscribe token for a subscription
  */
 export function generateUnsubscribeToken(subscriptionId: string): string {
-  // Simple token generation - in production, use a more secure method
-  return Buffer.from(`${subscriptionId}-${Date.now()}`).toString('base64');
+  // Crypto-random token (subscriptionId not embedded)
+  return randomBytes(32).toString('hex');
 }
 
 /**

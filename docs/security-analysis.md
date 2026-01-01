@@ -88,11 +88,36 @@ Static analysis only. No code edits, dependency audit, or runtime testing perfor
 
 ## Checklist
 
-- [ ] Lock down public email triggers (`app/api/send-emails/route.ts`, `app/api/send-individual-email/route.ts`)
-- [ ] Remove public env/debug probes (`app/api/admin/check-env/route.ts`, `app/api/debug-email/route.ts`)
-- [ ] Fix unsubscribe token exposure (RLS in `supabase/schema.sql`)
-- [ ] Strengthen token generation (`lib/emailService.ts`)
-- [ ] OTP hardening (`app/api/otp/send/route.ts`, `app/api/otp/verify/route.ts`)
-- [ ] Unsubscribe by email removal or auth (`app/api/unsubscribe/route.ts`)
-- [ ] Contact form input safety + abuse control (`app/api/contact/route.ts`)
-- [ ] Add security headers (`next.config.js`)
+- [x] Lock down public email triggers (`app/api/send-emails/route.ts`, `app/api/send-individual-email/route.ts`)
+- [x] Remove public env/debug probes (`app/api/admin/check-env/route.ts`, `app/api/debug-email/route.ts`)
+- [x] Fix unsubscribe token exposure (RLS in `supabase/schema.sql`)
+- [x] Strengthen token generation (`lib/emailService.ts`)
+- [x] OTP hardening (`app/api/otp/send/route.ts`, `app/api/otp/verify/route.ts`)
+- [x] Unsubscribe by email removal or auth (`app/api/unsubscribe/route.ts`)
+- [x] Contact form input safety + abuse control (`app/api/contact/route.ts`)
+- [x] Add security headers (`next.config.js`)
+
+## Changes made
+
+- Locked down email triggers with `EMAIL_SERVICE_TOKEN` auth in `app/api/send-emails/route.ts` and `app/api/send-individual-email/route.ts`.
+- Added admin auth to env/debug endpoints and removed secret previews in `app/api/admin/check-env/route.ts` and `app/api/debug-email/route.ts`.
+- Tightened RLS for `unsubscribe_tokens` select to `service_role` only in `supabase/schema.sql`.
+- Replaced unsubscribe token generation with crypto-random in `lib/emailService.ts`.
+- Hardened OTP flow (crypto OTP + basic throttling + generic responses) in `app/api/otp/send/route.ts` and `app/api/otp/verify/route.ts`.
+- Disabled email-only unsubscribe (token required) in `app/api/unsubscribe/route.ts`.
+- Escaped contact form inputs + length limits in `app/api/contact/route.ts`.
+- Added baseline security headers in `next.config.js`.
+- Added minimal rate-limit middleware for OTP, contact, and email-trigger endpoints in `middleware.ts`.
+- Updated admin email management UI to send Authorization header for protected email-trigger endpoints in `app/admin/email-management/page.tsx`.
+- Re-enabled admin gating for email management page with an explicit access denied message in `app/admin/email-management/page.tsx`.
+- Updated OTP UI copy to match generic responses in `components/OTPSignIn.tsx` and `components/PasswordAuthModal.tsx`.
+- Updated unsubscribe UI to remove email-based unsubscribe in `app/unsubscribe/page.tsx`.
+
+## Notes / follow-up
+
+- Apply the updated Supabase schema (policy change) in your Supabase SQL editor.
+- Frontend: adjust any OTP UI that expected specific “email not found/already exists” errors.
+- Any client using POST `/api/unsubscribe` by email must move to token-based unsubscribe.
+- If CSP is too strict for any embeds, tweak `next.config.js` accordingly.
+- UI flows should handle 429 responses (rate limits) from OTP/contact endpoints gracefully.
+- Admin email management now requires a valid admin session token in the browser.

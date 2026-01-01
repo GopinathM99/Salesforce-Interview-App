@@ -9,7 +9,6 @@ function UnsubscribeContent() {
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'idle'>('idle');
   const [message, setMessage] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
 
   const handleTokenUnsubscribe = useCallback(async () => {
     if (!token) return;
@@ -38,34 +37,6 @@ function UnsubscribeContent() {
       handleTokenUnsubscribe();
     }
   }, [token, handleTokenUnsubscribe]);
-
-  const handleEmailUnsubscribe = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setStatus('loading');
-
-    try {
-      const response = await fetch('/api/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setStatus('success');
-        setMessage(data.message);
-      } else {
-        setStatus('error');
-        setMessage(data.error || 'Failed to unsubscribe');
-      }
-    } catch {
-      setStatus('error');
-      setMessage('Network error. Please try again.');
-    }
-  };
 
   return (
     <div className="grid">
@@ -122,49 +93,13 @@ function UnsubscribeContent() {
 
         {status === 'idle' && !token && (
           <div>
-            <p style={{ textAlign: 'center', marginBottom: '30px' }}>
-              Enter your email address to unsubscribe from our notifications.
+            <p style={{ textAlign: 'center', marginBottom: '20px' }}>
+              Please use the unsubscribe link from one of our emails to complete your request.
             </p>
-            
-            <form onSubmit={handleEmailUnsubscribe} style={{ maxWidth: '400px', margin: '0 auto' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '16px'
-                  }}
-                  placeholder="your-email@example.com"
-                />
-              </div>
-              
-              <button
-                type="submit"
-                style={{
-                  width: '100%',
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  padding: '12px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Unsubscribe
-              </button>
-            </form>
+            <p style={{ textAlign: 'center' }}>
+              If you no longer have the email, you can contact support or manage your preferences on the{' '}
+              <a href="/subscribe" style={{ color: '#007bff' }}>subscription page</a>.
+            </p>
           </div>
         )}
 
