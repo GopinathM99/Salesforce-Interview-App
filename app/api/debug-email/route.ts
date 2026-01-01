@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 type AuthResult =
-  | { ok: true; supabase: ReturnType<typeof createClient> }
+  | { ok: true; supabase: SupabaseClient }
   | { ok: false; status: number; error: string };
 
 function requireAdmin(request: NextRequest): AuthResult {

@@ -316,7 +316,8 @@ export async function sendEmailToSubscriber(
 /**
  * Generate unsubscribe token for a subscription
  */
-export function generateUnsubscribeToken(subscriptionId: string): string {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function generateUnsubscribeToken(_subscriptionId: string): string {
   // Crypto-random token (subscriptionId not embedded)
   return randomBytes(32).toString('hex');
 }

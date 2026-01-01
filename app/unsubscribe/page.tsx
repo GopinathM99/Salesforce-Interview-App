@@ -9,6 +9,7 @@ function UnsubscribeContent() {
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'idle'>('idle');
   const [message, setMessage] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
 
   const handleTokenUnsubscribe = useCallback(async () => {
     if (!token) return;

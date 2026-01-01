@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   return NextResponse.json(
     { error: 'Token-based unsubscribe is required.' },
     { status: 405 }
