@@ -972,11 +972,11 @@ create policy "Anyone can insert unsubscribe tokens"
   to anon, authenticated, service_role
   with check (true);
 
--- Policy: Anyone can select unsubscribe tokens (for unsubscribe operations)
+-- Policy: Only service role can select unsubscribe tokens
 drop policy if exists "Anyone can select unsubscribe tokens" on public.unsubscribe_tokens;
-create policy "Anyone can select unsubscribe tokens"
+create policy "Service role can select unsubscribe tokens"
   on public.unsubscribe_tokens for select
-  to anon, authenticated, service_role
+  to service_role
   using (true);
 
 -- Policy: Service role can update unsubscribe tokens

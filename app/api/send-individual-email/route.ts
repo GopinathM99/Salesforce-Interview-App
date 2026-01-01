@@ -9,6 +9,63 @@ import {
   generateUnsubscribeToken
 } from '@/lib/emailService';
 
+type AuthResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string };
+
+async function authorizeRequest(request: NextRequest): Promise<AuthResult> {
+  const authHeader = request.headers.get('authorization') ?? '';
+  const expectedServiceToken = process.env.EMAIL_SERVICE_TOKEN;
+
+  if (expectedServiceToken && authHeader === `Bearer ${expectedServiceToken}`) {
+    return { ok: true };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { ok: false, status: 500, error: 'Supabase environment variables are not configured.' };
+  }
+
+  if (!authHeader.toLowerCase().startsWith('bearer ')) {
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+
+  const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!accessToken) {
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  });
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser(accessToken);
+
+  if (userError || !user) {
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+
+  const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
+  if (adminError) {
+    return { ok: false, status: 500, error: 'Failed to verify admin access.' };
+  }
+
+  if (!isAdmin) {
+    return { ok: false, status: 403, error: 'Forbidden' };
+  }
+
+  return { ok: true };
+}
+
 function getSupabaseClient(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,6 +79,11 @@ function getSupabaseClient(): SupabaseClient {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await authorizeRequest(request);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { subscriptionId } = body;
 

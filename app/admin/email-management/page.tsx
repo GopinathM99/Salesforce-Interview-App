@@ -88,10 +88,18 @@ export default function EmailManagementPage() {
     setMessage('');
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setMessage('Error: Admin session is required to send emails.');
+        return;
+      }
+
       const response = await fetch('/api/send-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify({ sendAll: true }),
       });
@@ -144,10 +152,18 @@ export default function EmailManagementPage() {
     setMessage('');
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setMessage(`Error sending email to ${email}: admin session is required.`);
+        return;
+      }
+
       const response = await fetch('/api/send-individual-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify({ subscriptionId }),
       });
@@ -187,10 +203,23 @@ export default function EmailManagementPage() {
     return <div>Loading...</div>;
   }
 
-  // Temporarily allow anyone to access email management
-  // if (!isAdmin) {
-  //   return <AdminAccessShell>{() => null}</AdminAccessShell>;
-  // }
+  if (!isAdmin) {
+    return (
+      <div className="grid">
+        <div className="card">
+          <h1>Subscription Management</h1>
+          <p className="muted" style={{ marginTop: 12 }}>
+            Access denied. You must be an admin to view this page.
+          </p>
+          <div style={{ marginTop: 16 }}>
+            <Link className="btn" href="/admin">
+              Go to Admin Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid">

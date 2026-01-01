@@ -239,6 +239,14 @@ const toMcq = (mcq: McqLike | null | undefined, fallbackQuestionId?: string): Mu
   };
 };
 
+// Speech-to-Text Types
+export type STTProvider = 'deepgram' | 'assemblyai';
+
+export interface STTTranscriptResponse {
+  transcript: string;
+  confidence: number;
+}
+
 export const normalizeQuestion = (raw: RawQuestion): Question => {
   const relation = raw.multiple_choice_questions;
   let mcqCandidate: McqLike | null = null;

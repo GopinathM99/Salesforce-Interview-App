@@ -198,7 +198,8 @@ export function OTPSignIn({ onClose }: OTPSignInProps) {
               Enter Verification Code
             </h2>
             <p style={{ marginBottom: 24, color: "rgba(255, 255, 255, 0.7)", fontSize: 14 }}>
-              We&apos;ve sent a 6-digit code to <strong>{email}</strong>. Enter it below to sign in.
+              If an eligible account exists, we&apos;ve sent a 6-digit code to <strong>{email}</strong>.
+              Enter it below to sign in.
             </p>
 
             {error && (
