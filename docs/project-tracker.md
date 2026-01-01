@@ -65,7 +65,9 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 - [x] Chat and Live Agent Prep
 - [x] Add AI Chat. AI Chat will recieve the Transcript from the interview.
 - [x] Questions are being repeated. Try questions from the database only. for both Audio and Chat.
-- [ ]
+- [x] Speech-to-Text (STT) - Deepgram Nova-3 integration
+- [x] Speech-to-Text (STT) - AssemblyAI Universal-2 integration
+- [x] STT Provider selector UI (switch between Deepgram/AssemblyAI)
 
 ### Admin Features
 - [x] Daily/monthly user visits tracking
@@ -73,8 +75,8 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ### UI/UX Improvements
 - [ ] Improve UI - make it beautiful
-- [ ] Buttons and cards should not move
-- [ ] Different colors for triggers, Apex files, LWC, etc.
+- [x] Buttons and cards should not move
+- [x] Different colors for triggers, Apex files, LWC, etc.
 - [ ] Different themes support
 - [ ] UI improvements using Gemini 3.0 multimodal capabilities
 
@@ -103,4 +105,4 @@ A Salesforce interview preparation application with quiz features, AI-powered as
 
 ---
 
-*Last Updated: December 14, 2025*
+*Last Updated: December 30, 2025*

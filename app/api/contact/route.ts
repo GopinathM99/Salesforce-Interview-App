@@ -17,6 +17,19 @@ interface ContactFormData {
   message: string;
 }
 
+const MAX_NAME_LENGTH = 100;
+const MAX_SUBJECT_LENGTH = 200;
+const MAX_MESSAGE_LENGTH = 2000;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Parse the request body
@@ -27,6 +40,21 @@ export async function POST(request: NextRequest) {
     if (!name || !email || !subject || !message) {
       return NextResponse.json(
         { error: 'All fields are required' },
+        { status: 400 }
+      );
+    }
+
+    const trimmedName = name.trim();
+    const trimmedSubject = subject.trim();
+    const trimmedMessage = message.trim();
+
+    if (
+      trimmedName.length > MAX_NAME_LENGTH ||
+      trimmedSubject.length > MAX_SUBJECT_LENGTH ||
+      trimmedMessage.length > MAX_MESSAGE_LENGTH
+    ) {
+      return NextResponse.json(
+        { error: 'Message exceeds allowed length' },
         { status: 400 }
       );
     }
@@ -50,6 +78,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate HTML email template with inline styles for better email client compatibility
+    const safeName = escapeHtml(trimmedName);
+    const safeEmail = escapeHtml(email.trim());
+    const safeSubject = escapeHtml(trimmedSubject);
+    const safeMessage = escapeHtml(trimmedMessage);
+
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="en">
@@ -72,27 +105,27 @@ export async function POST(request: NextRequest) {
 
             <div style="margin-bottom: 20px; padding: 15px; background-color: #fff5e6; border-radius: 4px; border: 1px solid #f0dfc7;">
               <div style="font-weight: bold; color: #007bff; margin-bottom: 5px;">Name:</div>
-              <div style="color: #333333;">${name}</div>
+              <div style="color: #333333;">${safeName}</div>
             </div>
 
             <div style="margin-bottom: 20px; padding: 15px; background-color: #fff5e6; border-radius: 4px; border: 1px solid #f0dfc7;">
               <div style="font-weight: bold; color: #007bff; margin-bottom: 5px;">Email:</div>
-              <div style="color: #333333;">${email}</div>
+              <div style="color: #333333;">${safeEmail}</div>
             </div>
 
             <div style="margin-bottom: 20px; padding: 15px; background-color: #fff5e6; border-radius: 4px; border: 1px solid #f0dfc7;">
               <div style="font-weight: bold; color: #007bff; margin-bottom: 5px;">Subject:</div>
-              <div style="color: #333333;">${subject}</div>
+              <div style="color: #333333;">${safeSubject}</div>
             </div>
 
             <div style="margin-bottom: 20px; padding: 15px; background-color: #fff5e6; border-radius: 4px; border: 1px solid #f0dfc7;">
               <div style="font-weight: bold; color: #007bff; margin-bottom: 5px;">Message:</div>
-              <div style="color: #333333; white-space: pre-wrap;">${message}</div>
+              <div style="color: #333333; white-space: pre-wrap;">${safeMessage}</div>
             </div>
 
             <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; font-size: 14px; color: #666666;">
               <p style="margin: 5px 0; color: #666666;"><strong style="color: #333333;">Submitted at:</strong> ${new Date().toLocaleString()}</p>
-              <p style="margin: 5px 0; color: #666666;"><strong style="color: #333333;">Reply-To:</strong> <a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></p>
+              <p style="margin: 5px 0; color: #666666;"><strong style="color: #333333;">Reply-To:</strong> <a href="mailto:${safeEmail}" style="color: #007bff; text-decoration: none;">${safeEmail}</a></p>
             </div>
           </div>
 
@@ -108,8 +141,8 @@ export async function POST(request: NextRequest) {
     const mailOptions = {
       from: `"Salesforce Interview Prep - Contact Form" <${process.env.GMAIL_USER}>`,
       to: process.env.GMAIL_USER, // Send to yourself
-      replyTo: email, // Allow easy reply to the user
-      subject: `Contact Form: ${subject}`,
+      replyTo: email.trim(), // Allow easy reply to the user
+      subject: `Contact Form: ${trimmedSubject}`,
       html: htmlContent,
     };
 

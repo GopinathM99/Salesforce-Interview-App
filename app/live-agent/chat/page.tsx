@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/AuthProvider";
+import { VoiceRecordButton } from "@/components/VoiceRecordButton";
 import type { InspirationQuestion } from "@/lib/types";
 
 type ChatMessage = {
@@ -991,7 +992,7 @@ export default function LiveAgentChatPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type your response... (Press Enter to send, Shift+Enter for new line)"
+                  placeholder="Type your response or use the mic button... (Press Enter to send, Shift+Enter for new line)"
                   disabled={isLoading}
                   style={{
                     flex: 1,
@@ -999,14 +1000,23 @@ export default function LiveAgentChatPage() {
                     resize: "vertical"
                   }}
                 />
-                <button
-                  className="btn primary"
-                  onClick={() => void sendMessage()}
-                  disabled={!inputValue.trim() || isLoading}
-                  style={{ alignSelf: "flex-end" }}
-                >
-                  {isLoading ? "Sending..." : "Send"}
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "flex-end" }}>
+                  <VoiceRecordButton
+                    onTranscript={(text) => {
+                      setInputValue((prev) => (prev ? `${prev} ${text}` : text));
+                    }}
+                    disabled={isLoading}
+                    accessToken={session?.access_token ?? null}
+                    showProviderSelector={true}
+                  />
+                  <button
+                    className="btn primary"
+                    onClick={() => void sendMessage()}
+                    disabled={!inputValue.trim() || isLoading}
+                  >
+                    {isLoading ? "Sending..." : "Send"}
+                  </button>
+                </div>
               </div>
             )}
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+const OTP_VERIFY_WINDOW_MINUTES = 10;
+const OTP_MAX_VERIFY_ATTEMPTS = 10;
+
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,6 +36,28 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient();
     const normalizedEmail = email.toLowerCase();
     const resolvedFlow = flow === 'signup' ? 'signup' : 'signin';
+
+    const rateLimitSince = new Date(Date.now() - OTP_VERIFY_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: recentCount, error: rateLimitError } = await supabase
+      .from('otp_codes')
+      .select('id', { count: 'exact', head: true })
+      .eq('email', normalizedEmail)
+      .gte('created_at', rateLimitSince);
+
+    if (rateLimitError) {
+      console.error('Error checking OTP verify rate limit:', rateLimitError);
+      return NextResponse.json(
+        { error: 'Unable to process request' },
+        { status: 500 }
+      );
+    }
+
+    if ((recentCount ?? 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
 
     // Find valid OTP code
     const { data: otpRecords, error: otpError } = await supabase

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
+import { randomInt } from 'crypto';
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,9 +14,12 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
-// Generate random 6-digit OTP code
+const OTP_WINDOW_MINUTES = 10;
+const OTP_MAX_REQUESTS = 5;
+
+// Generate random 6-digit OTP code (crypto-secure)
 function generateOTPCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 // Email configuration
@@ -109,6 +113,28 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient();
 
+    const rateLimitSince = new Date(Date.now() - OTP_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: recentCount, error: rateLimitError } = await supabase
+      .from('otp_codes')
+      .select('id', { count: 'exact', head: true })
+      .eq('email', normalizedEmail)
+      .gte('created_at', rateLimitSince);
+
+    if (rateLimitError) {
+      console.error('Error checking OTP rate limit:', rateLimitError);
+      return NextResponse.json(
+        { error: 'Unable to process request' },
+        { status: 500 }
+      );
+    }
+
+    if ((recentCount ?? 0) >= OTP_MAX_REQUESTS) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     if (resolvedFlow === 'signin') {
       // Check if email exists in user_profiles
       const { data: userProfile, error: profileError } = await supabase
@@ -118,10 +144,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (profileError || !userProfile) {
-        return NextResponse.json(
-          { error: 'This email doesn\'t exist in database.\nFirst Time Users have to use Google Sign-In' },
-          { status: 404 }
-        );
+        return NextResponse.json({
+          success: true,
+          message: 'If the account is eligible, an OTP has been sent.'
+        });
       }
     } else {
       const { data: existingProfile } = await supabase
@@ -131,10 +157,10 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (existingProfile?.email) {
-        return NextResponse.json(
-          { error: 'An account with this email already exists. Please sign in.' },
-          { status: 409 }
-        );
+        return NextResponse.json({
+          success: true,
+          message: 'If the account is eligible, an OTP has been sent.'
+        });
       }
     }
 
@@ -178,7 +204,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'OTP code sent to your email',
+      message: 'If the account is eligible, an OTP has been sent.'
     });
   } catch (error) {
     console.error('Error in OTP send endpoint:', error);
