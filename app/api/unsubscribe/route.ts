@@ -71,53 +71,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = getSupabaseClient();
-    const body = await request.json();
-    const { email } = body;
-
-    if (!email) {
-      return NextResponse.json({ error: 'Email address required' }, { status: 400 });
-    }
-
-    // Find active subscription for this email
-    const { data: subscription, error: subscriptionError } = await supabase
-      .from('subscription_preferences')
-      .select('*')
-      .eq('email', email)
-      .eq('is_active', true)
-      .single();
-
-    if (subscriptionError || !subscription) {
-      return NextResponse.json({ 
-        error: 'No active subscription found for this email address' 
-      }, { status: 404 });
-    }
-
-    // Deactivate the subscription
-    const { error: updateError } = await supabase
-      .from('subscription_preferences')
-      .update({ is_active: false })
-      .eq('id', subscription.id);
-
-    if (updateError) {
-      console.error('Error deactivating subscription:', updateError);
-      return NextResponse.json({ 
-        error: 'Failed to unsubscribe' 
-      }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Successfully unsubscribed from email notifications'
-    });
-
-  } catch (error) {
-    console.error('Error in unsubscribe process:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Token-based unsubscribe is required.' },
+    { status: 405 }
+  );
 }

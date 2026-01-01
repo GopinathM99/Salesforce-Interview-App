@@ -84,7 +84,7 @@ export function PasswordAuthModal({ onClose, initialMode = "signup" }: PasswordA
     try {
       await sendSignupOtp();
       setSignupStep("otp");
-      setSuccess("We sent a verification code to your email.");
+      setSuccess("If the account is eligible, we sent a verification code to your email.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send verification code";
       setError(message);
@@ -204,7 +204,7 @@ export function PasswordAuthModal({ onClose, initialMode = "signup" }: PasswordA
         </h2>
         <p style={{ marginBottom: 24, color: "rgba(255, 255, 255, 0.7)", fontSize: 14, textAlign: "left" }}>
           {isOtpStep
-            ? `We sent a 6-digit code to ${email.trim() || "your email"}. Enter it below to finish creating your account.`
+            ? `If the account is eligible, we sent a 6-digit code to ${email.trim() || "your email"}. Enter it below to finish creating your account.`
             : isSignup
               ? "We will send a one-time code to verify your email after you create the account."
               : "Enter your username or email and password to access your account."}
