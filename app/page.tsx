@@ -978,12 +978,12 @@ Please answer the user's question clearly and concisely, ideally within one or t
                             flex: 1,
                             minHeight: "80px",
                             padding: "8px 12px",
-                            backgroundColor: "#1e293b",
-                            border: "1px solid #334155",
+                            backgroundColor: "var(--gradient-card-start)",
+                            border: "1px solid var(--border)",
                             borderRadius: "6px",
-                            color: "#f1f5f9",
+                            color: "var(--text)",
                             fontSize: "14px",
-                            fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                            fontFamily: "inherit",
                             resize: "vertical"
                           }}
                           onKeyDown={(e) => {

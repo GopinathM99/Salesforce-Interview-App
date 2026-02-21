@@ -394,21 +394,19 @@ function FlashcardsContent() {
             {meta}
             <h3 style={{ 
               marginTop: 8, 
-              fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
               fontSize: '22px',
               lineHeight: '1.5',
               fontWeight: 400,
-              color: '#f1f5f9'
+              color: 'var(--text)'
             }}>{q.question_text}</h3>
             {reveal ? (
               <div style={{ marginTop: 12 }}>
-                <strong style={{ color: '#f1f5f9', fontWeight: 600, fontSize: '16px' }}>Answer:</strong>
+                <strong style={{ color: 'var(--text)', fontWeight: 600, fontSize: '16px' }}>Answer:</strong>
                 <p style={{ 
                   whiteSpace: "pre-wrap",
-                  fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
                   fontSize: '16px',
                   lineHeight: '1.7',
-                  color: '#e2e8f0',
+                  color: 'var(--text)',
                   marginTop: 8
                 }}>{q.answer_text}</p>
               </div>

@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthProvider";
-import { User } from "lucide-react";
+import { User, Palette } from "lucide-react";
 import { OTPSignIn } from "./OTPSignIn";
 import { UsernameModal } from "./UsernameModal";
 import { PasswordAuthModal } from "./PasswordAuthModal";
+import { ThemeModal } from "./ThemeSelector";
 
 export function AuthStatus() {
   const { user, loading, signInWithGoogle, signOut, resendVerification } = useAuth();
@@ -16,6 +17,7 @@ export function AuthStatus() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordModalMode, setPasswordModalMode] = useState<"signup" | "signin">("signup");
   const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const isEmailVerified = user ? Boolean(user.email_confirmed_at ?? user.confirmed_at) : false;
   const currentUsername = user?.user_metadata?.username ?? user?.user_metadata?.full_name ?? "";
@@ -52,8 +54,7 @@ export function AuthStatus() {
     if (!menuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -96,9 +97,9 @@ export function AuthStatus() {
                 width: "48px",
                 height: "48px",
                 borderRadius: "50%",
-                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                border: "2px solid rgba(59, 130, 246, 0.3)",
-                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-3) 100%)",
+                border: "2px solid var(--border-subtle)",
+                boxShadow: "0 4px 12px var(--accent-glow)",
                 transition: "all 0.3s ease",
                 position: "relative",
                 overflow: "hidden"
@@ -106,11 +107,11 @@ export function AuthStatus() {
               disabled={loading}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "scale(1.1)";
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(59, 130, 246, 0.4)";
+                e.currentTarget.style.boxShadow = "0 6px 20px var(--accent-glow)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
+                e.currentTarget.style.boxShadow = "0 4px 12px var(--accent-glow)";
               }}
             >
               <User aria-hidden style={{ 
@@ -128,10 +129,10 @@ export function AuthStatus() {
                   right: 0,
                   top: "calc(100% + 8px)",
                   minWidth: 220,
-                  background: "linear-gradient(135deg, #1a1f2e 0%, rgba(26, 31, 46, 0.95) 100%)",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  background: "linear-gradient(135deg, var(--card) 0%, var(--gradient-card-end) 100%)",
+                  border: "1px solid var(--border-subtle)",
                   borderRadius: 12,
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px var(--accent-bg-subtle)",
                   padding: 16,
                   display: "grid",
                   gap: 12,
@@ -147,9 +148,9 @@ export function AuthStatus() {
                     style={{
                       padding: "8px 12px",
                       borderRadius: 10,
-                      background: "rgba(245, 158, 11, 0.12)",
-                      border: "1px solid rgba(245, 158, 11, 0.35)",
-                      color: "rgba(245, 158, 11, 0.95)",
+                      background: "var(--warning-bg-subtle)",
+                      border: "1px solid var(--warning-border)",
+                      color: "var(--warning-text)",
                       fontSize: 12,
                       textAlign: "center"
                     }}
@@ -188,6 +189,18 @@ export function AuthStatus() {
                 </Button>
                 <Button
                   variant="secondary"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowThemeModal(true);
+                  }}
+                  disabled={loading}
+                  style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <Palette size={16} />
+                  Select theme
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={handleSignOut}
                   disabled={loading}
                   style={{ cursor: "pointer" }}
@@ -223,18 +236,18 @@ export function AuthStatus() {
                   width: "48px",
                   height: "48px",
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
-                  border: "2px solid rgba(245, 158, 11, 0.3)",
-                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                  background: "linear-gradient(135deg, var(--accent-4) 0%, var(--danger) 100%)",
+                  border: "2px solid var(--warning-border)",
+                  boxShadow: "0 4px 12px var(--warning-border)",
                   transition: "all 0.3s ease"
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.1)";
-                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(245, 158, 11, 0.4)";
+                  e.currentTarget.style.boxShadow = "0 6px 20px var(--warning-border)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(245, 158, 11, 0.3)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px var(--warning-border)";
                 }}
               >
                 <User aria-hidden style={{
@@ -252,10 +265,10 @@ export function AuthStatus() {
                     right: 0,
                     top: "calc(100% + 8px)",
                     minWidth: 240,
-                    background: "linear-gradient(135deg, #1a1f2e 0%, rgba(26, 31, 46, 0.95) 100%)",
-                    border: "1px solid rgba(59, 130, 246, 0.3)",
+                    background: "linear-gradient(135deg, var(--card) 0%, var(--gradient-card-end) 100%)",
+                    border: "1px solid var(--border-subtle)",
                     borderRadius: 12,
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.3), 0 0 0 1px var(--accent-bg-subtle)",
                     padding: 16,
                     display: "grid",
                     gap: 12,
@@ -309,6 +322,18 @@ export function AuthStatus() {
                   >
                     Sign up
                   </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowThemeModal(true);
+                    }}
+                    disabled={loading}
+                    style={{ cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <Palette size={16} />
+                    Select theme
+                  </Button>
                 </div>
               )}
             </div>
@@ -327,6 +352,9 @@ export function AuthStatus() {
           onClose={() => setShowUsernameModal(false)}
           initialUsername={currentUsername}
         />
+      )}
+      {showThemeModal && (
+        <ThemeModal onClose={() => setShowThemeModal(false)} />
       )}
     </div>
   );

@@ -646,11 +646,10 @@ Please answer the user's question clearly and concisely, ideally within one or t
             </div>
             <h3 style={{ 
               marginTop: 8, 
-              fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
               fontSize: '22px',
               lineHeight: '1.5',
               fontWeight: 400,
-              color: '#f1f5f9'
+              color: 'var(--text)'
             }}>{q.question_text}</h3>
             <ul className="clean" style={{ marginTop: 12 }}>
               {(q.mcq?.choices ?? []).map((c, idx) => (
@@ -665,7 +664,6 @@ Please answer the user's question clearly and concisely, ideally within one or t
                   }}
                   style={{ 
                     cursor: status === "idle" ? "pointer" : "default",
-                    fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
                     fontSize: '15px',
                     lineHeight: '1.6'
                   }}
@@ -712,12 +710,11 @@ Please answer the user's question clearly and concisely, ideally within one or t
                       <p style={{
                         marginTop: 10,
                         whiteSpace: "pre-wrap",
-                        fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
                         fontSize: '16px',
                         lineHeight: '1.7',
-                        color: '#e2e8f0'
+                        color: 'var(--text)'
                       }}>
-                        <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
+                        <strong style={{ color: 'var(--text)', fontWeight: 600 }}>Explanation: </strong>{q.mcq?.explanation ?? q.answer_text}
                       </p>
                     )}
                   </>
@@ -767,12 +764,12 @@ Please answer the user's question clearly and concisely, ideally within one or t
                           flex: 1,
                           minHeight: "80px",
                           padding: "8px 12px",
-                          backgroundColor: "#1e293b",
-                          border: "1px solid #334155",
+                          backgroundColor: "var(--gradient-card-start)",
+                          border: "1px solid var(--border)",
                           borderRadius: "6px",
-                          color: "#f1f5f9",
+                          color: "var(--text)",
                           fontSize: "14px",
-                          fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
+                          fontFamily: "inherit",
                           resize: "vertical"
                         }}
                         onKeyDown={(e) => {

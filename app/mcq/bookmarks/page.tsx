@@ -377,11 +377,10 @@ function McqBookmarksContent() {
               <h3
                 style={{
                   marginTop: 12,
-                  fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
                   fontSize: "22px",
                   lineHeight: "1.5",
                   fontWeight: 400,
-                  color: "#f1f5f9"
+                  color: "var(--text)"
                 }}
               >
                 {selectedQuestion.question_text}
@@ -406,8 +405,6 @@ function McqBookmarksContent() {
                         }}
                         style={{
                           cursor: status === "idle" ? "pointer" : "default",
-                          fontFamily:
-                            'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
                           fontSize: "15px",
                           lineHeight: "1.6"
                         }}

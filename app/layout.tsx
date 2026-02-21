@@ -2,6 +2,7 @@ import "../styles/globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthStatus } from "@/components/AuthStatus";
+import { ThemeProvider } from "@/lib/ThemeContext";
 
 export const metadata: Metadata = {
   title: "Salesforce Interview Prep",
@@ -22,7 +23,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
       <body>
+        <ThemeProvider>
         <AuthProvider>
           <div className="container">
             <header className="header">
@@ -90,12 +97,13 @@ export default function RootLayout({
             <footer className="footer">
               <span>Built with Next.js + Supabase</span>
               <span style={{ margin: "0 8px" }}>•</span>
-              <a href="/contact" style={{ color: "#007bff", textDecoration: "none" }}>
+              <a href="/contact" style={{ color: "var(--accent)", textDecoration: "none" }}>
                 Contact Us
               </a>
             </footer>
           </div>
         </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
