@@ -168,11 +168,11 @@ work too, if the org still allows creating them. The settings are equivalent:
 |---|---|
 | Name | `Playwright UI Automation` |
 | Contact email | team DL |
-| Enable OAuth | - [x] |
+| Enable OAuth | ✅ |
 | Callback URL | `http://localhost:1717/OauthRedirect` (required field; not used by JWT flow) |
 | OAuth scopes | **`api`**, **`web`**, **`refresh_token, offline_access`** (`web` is needed so the token works as a UI session) |
-| Flow enablement | - [x] **Enable JWT Bearer Flow**, then upload `sf_jwt.crt` |
-| "Issue JSON Web Token (JWT)-based access tokens for named users" | - [ ] **OFF**. JWT-format access tokens are *not* session ids and won't work as a `sid` cookie |
+| Flow enablement | ✅ **Enable JWT Bearer Flow**, then upload `sf_jwt.crt` |
+| "Issue JSON Web Token (JWT)-based access tokens for named users" | ❌ **OFF**. JWT-format access tokens are *not* session ids and won't work as a `sid` cookie |
 | Require secret for web server flow / PKCE | irrelevant for JWT flow; leave defaults |
 
 Then, under the app's **Policies**:
@@ -783,199 +783,199 @@ export class BasePage {
   async openListView(sobject: string, filterName = 'Recent') {
     await this.page.goto(`${SF_LIGHTNING_URL}/lightning/o/${sobject}/list?filterName=${filterName}`, { waitUntil: 'load' })
   }
-  async openNewRecordForm(sobject: string) {  
-    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/o/${sobject}/new`, { waitUntil: 'load' })  
+  async openNewRecordForm(sobject: string) {
+    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/o/${sobject}/new`, { waitUntil: 'load' })
   }
 
-  async openRecordPage(sobject: string, recordId: string) {  
-    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/r/${sobject}/${recordId}/view`, { waitUntil: 'load' })  
+  async openRecordPage(sobject: string, recordId: string) {
+    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/r/${sobject}/${recordId}/view`, { waitUntil: 'load' })
   }
 
-  /** Custom Lightning tabs / LWC app pages: /lightning/n/<TabApiName> */  
-  async openCustomTab(tabApiName: string) {  
-    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/n/${tabApiName}`, { waitUntil: 'load' })  
+  /** Custom Lightning tabs / LWC app pages: /lightning/n/<TabApiName> */
+  async openCustomTab(tabApiName: string) {
+    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/n/${tabApiName}`, { waitUntil: 'load' })
   }
 
-  async openSetup(path = 'SetupOneHome/home') {  
-    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/setup/${path}`, { waitUntil: 'load' })  
+  async openSetup(path = 'SetupOneHome/home') {
+    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/setup/${path}`, { waitUntil: 'load' })
   }
 
-  /** Record Id of the record page currently open (after a create/save lands on /lightning/r/<Obj>/<Id>/view) */  
-  async currentRecordId(sobject: string): Promise<string> {  
-    const pattern = new RegExp(`/lightning/r/${sobject}/(\\\\w{15,18})/view`)  
-    await this.page.waitForURL(pattern)  
-    return this.page.url().match(pattern)![1]  
+  /** Record Id of the record page currently open (after a create/save lands on /lightning/r/<Obj>/<Id>/view) */
+  async currentRecordId(sobject: string): Promise<string> {
+    const pattern = new RegExp(`/lightning/r/${sobject}/(\\w{15,18})/view`)
+    await this.page.waitForURL(pattern)
+    return this.page.url().match(pattern)![1]
   }
 
-  // ── Waiting ──  
-  async waitLoadSpinnerHidden(timeout = 70_000) {  
-    for (const spinner of await this.loadSpinner.all()) {  
-      await spinner.waitFor({ state: 'hidden', timeout })  
-    }  
+  // ── Waiting ──
+  async waitLoadSpinnerHidden(timeout = 70_000) {
+    for (const spinner of await this.loadSpinner.all()) {
+      await spinner.waitFor({ state: 'hidden', timeout })
+    }
   }
 
-  async waitForToast(text: string | RegExp, { dismiss = true, timeout = 30_000 } = {}) {  
-    const toast = this.toast(text)  
-    await expect(toast).toBeVisible({ timeout })  
-    if (dismiss) {  
-      await this.toastClose.click().catch(() => {}) // toast may auto-dismiss first  
-      await expect(toast).toBeHidden({ timeout })  
-    }  
+  async waitForToast(text: string | RegExp, { dismiss = true, timeout = 30_000 } = {}) {
+    const toast = this.toast(text)
+    await expect(toast).toBeVisible({ timeout })
+    if (dismiss) {
+      await this.toastClose.click().catch(() => {}) // toast may auto-dismiss first
+      await expect(toast).toBeHidden({ timeout })
+    }
   }
 
-  // ── App switching ──  
-  async switchToApp(appName: string) {  
-    if ((await this.currentApp.textContent())?.trim() === appName) return  
-    await this.appLauncherButton.click()  
-    await this.appLauncherSearch.fill(appName)  
-    await this.appLauncherItem(appName).click()  
-    await expect(this.currentApp).toHaveText(appName)  
-    await this.waitLoadSpinnerHidden()  
-  }  
+  // ── App switching ──
+  async switchToApp(appName: string) {
+    if ((await this.currentApp.textContent())?.trim() === appName) return
+    await this.appLauncherButton.click()
+    await this.appLauncherSearch.fill(appName)
+    await this.appLauncherItem(appName).click()
+    await expect(this.currentApp).toHaveText(appName)
+    await this.waitLoadSpinnerHidden()
+  }
 }
 ```
 
-The currentApp, appLauncher*, and toast selectors use comma-separated fallbacks because Lightning markup changes between releases. **Check them against the real org on day one** (see §11) and trim each down to the one that matches.
+> The currentApp, appLauncher*, and toast selectors use comma-separated fallbacks because Lightning markup changes between releases. **Check them against the real org on day one** (see §11) and trim each down to the one that matches.
 
-### **4.14 pages/SetupPage.ts: Login As**
+### 4.14 `pages/SetupPage.ts`: Login As
 
 ```ts
-import { FrameLocator, Locator, Page } from '@playwright/test'  
-import { BasePage } from './BasePage'  
+import { FrameLocator, Locator, Page } from '@playwright/test'
+import { BasePage } from './BasePage'
 import { SF_LIGHTNING_URL } from '../config/env'
 
-export class SetupPage extends BasePage {  
-  readonly userDetailFrame: FrameLocator  
+export class SetupPage extends BasePage {
+  readonly userDetailFrame: FrameLocator
   readonly loginAsButton: Locator
 
-  constructor(page: Page) {  
-    super(page)  
-    // Setup's user detail page is a classic page rendered inside an iframe titled "User: <Name> ~ Salesforce"  
-    this.userDetailFrame = page.frameLocator('iframe[title*="User:"]')  
-    this.loginAsButton = this.userDetailFrame.locator('#topButtonRow input[title="Login"], #topButtonRow [title="Login"]').first()  
+  constructor(page: Page) {
+    super(page)
+    // Setup's user detail page is a classic page rendered inside an iframe titled "User: <Name> ~ Salesforce"
+    this.userDetailFrame = page.frameLocator('iframe[title*="User:"]')
+    this.loginAsButton = this.userDetailFrame.locator('#topButtonRow input[title="Login"], #topButtonRow [title="Login"]').first()
   }
 
-  async openUserDetail(userId: string) {  
-    const address = encodeURIComponent(`/${userId}?noredirect=1&isUserEntityOverride=1&retURL=${encodeURIComponent('/setup/home')}`)  
-    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/setup/ManageUsers/page?address=${address}`, { waitUntil: 'load' })  
+  async openUserDetail(userId: string) {
+    const address = encodeURIComponent(`/${userId}?noredirect=1&isUserEntityOverride=1&retURL=${encodeURIComponent('/setup/home')}`)
+    await this.page.goto(`${SF_LIGHTNING_URL}/lightning/setup/ManageUsers/page?address=${address}`, { waitUntil: 'load' })
   }
 
-  /**  
-   * Turns this page's context into a session for `userId` via Setup → Users → Login.  
-   * Requires "Administrators Can Log in as Any User" (§3.3). Retries once: the Setup iframe is occasionally slow.  
-   */  
-  async loginAsUser(userId: string): Promise<Page> {  
-    for (let attempt = 1; ; attempt++) {  
-      await this.openUserDetail(userId)  
-      await this.loginAsButton.click()  
-      try {  
-        // Login-As redirects through /servlet/servlet.su and lands on the persona's default Lightning page  
-        await this.page.waitForURL(  
-          (url) => url.pathname.startsWith('/lightning/') && !url.pathname.startsWith('/lightning/setup/'),  
-          { timeout: 45_000 }  
-        )  
-        await this.waitLoadSpinnerHidden()  
-        return this.page  
-      } catch (e) {  
-        if (attempt >= 2) throw new Error(`Login As ${userId} failed; last URL ${this.page.url()}: ${e}`)  
-      }  
-    }  
-  }  
+  /**
+   * Turns this page's context into a session for `userId` via Setup → Users → Login.
+   * Requires "Administrators Can Log in as Any User" (§3.3). Retries once: the Setup iframe is occasionally slow.
+   */
+  async loginAsUser(userId: string): Promise<Page> {
+    for (let attempt = 1; ; attempt++) {
+      await this.openUserDetail(userId)
+      await this.loginAsButton.click()
+      try {
+        // Login-As redirects through /servlet/servlet.su and lands on the persona's default Lightning page
+        await this.page.waitForURL(
+          (url) => url.pathname.startsWith('/lightning/') && !url.pathname.startsWith('/lightning/setup/'),
+          { timeout: 45_000 }
+        )
+        await this.waitLoadSpinnerHidden()
+        return this.page
+      } catch (e) {
+        if (attempt >= 2) throw new Error(`Login As ${userId} failed; last URL ${this.page.url()}: ${e}`)
+      }
+    }
+  }
 }
 ```
 
-### **4.15 utils/utils.ts**
+### 4.15 `utils/utils.ts`
 
 ```ts
 import { TEST_DATA_PREFIX } from '../config/env'
 
-export class Utils {  
-  /** 'Jan 15, 2026': the format en_US Lightning date inputs accept. Check the persona's locale. */  
-  static formatDateForInput(date: Date): string {  
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })  
+export class Utils {
+  /** 'Jan 15, 2026': the format en_US Lightning date inputs accept. Check the persona's locale. */
+  static formatDateForInput(date: Date): string {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  /** '$1,234.50' → 1234.5 */  
-  static clearMoneyValue(money: string): number {  
-    return +money.replace(/[^0-9.-]/g, '')  
+  /** '$1,234.50' → 1234.5 */
+  static clearMoneyValue(money: string): number {
+    return +money.replace(/[^0-9.-]/g, '')
   }
 
-  /** Readable unique suffix, e.g. 'Oct21-2026-143005-123' */  
-  static testRunSuffix(date = new Date()): string {  
-    const p = (n: number, l = 2) => String(n).padStart(l, '0')  
-    const mon = date.toLocaleString('en-US', { month: 'short' })  
-    return `${mon}${p(date.getDate())}-${date.getFullYear()}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}-${p(date.getMilliseconds(), 3)}`  
+  /** Readable unique suffix, e.g. 'Oct21-2026-143005-123' */
+  static testRunSuffix(date = new Date()): string {
+    const p = (n: number, l = 2) => String(n).padStart(l, '0')
+    const mon = date.toLocaleString('en-US', { month: 'short' })
+    return `${mon}${p(date.getDate())}-${date.getFullYear()}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}-${p(date.getMilliseconds(), 3)}`
   }
 
-  /** e.g. uniqueName('Case') → 'Autotest Case Oct21-2026-143005-123' */  
-  static uniqueName(label: string): string {  
-    return `${TEST_DATA_PREFIX} ${label} ${this.testRunSuffix()}`  
+  /** e.g. uniqueName('Case') → 'Autotest Case Oct21-2026-143005-123' */
+  static uniqueName(label: string): string {
+    return `${TEST_DATA_PREFIX} ${label} ${this.testRunSuffix()}`
   }
 
-  /** Escape a value for use inside single quotes in SOQL */  
-  static soqlEscape(value: string): string {  
-    return value.replace(/\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'")  
-  }  
+  /** Escape a value for use inside single quotes in SOQL */
+  static soqlEscape(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  }
 }
 ```
 
-### **4.16 utils/load.ts**
+### 4.16 `utils/load.ts`
 
 Use this only when a page has no reliable visual signal for "done loading".
 
 ```ts
 import { Page, Request } from '@playwright/test'
 
-/** Resolves once no requests have been in flight for `idleTime` ms. Lightning keeps long-polling, so keep `timeout` modest. */  
-export const waitForNetworkIdle = async (page: Page, idleTime = 500, timeout = 10_000): Promise<void> => {  
-  const pending = new Set<Request>()  
-  let lastActivity = Date.now()  
-  const onRequest = (req: Request) => {  
-    pending.add(req)  
-    lastActivity = Date.now()  
-  }  
-  const onDone = (req: Request) => {  
-    pending.delete(req)  
-    lastActivity = Date.now()  
-  }  
-  page.on('request', onRequest)  
-  page.on('requestfinished', onDone)  
+/** Resolves once no requests have been in flight for `idleTime` ms. Lightning keeps long-polling, so keep `timeout` modest. */
+export const waitForNetworkIdle = async (page: Page, idleTime = 500, timeout = 10_000): Promise<void> => {
+  const pending = new Set<Request>()
+  let lastActivity = Date.now()
+  const onRequest = (req: Request) => {
+    pending.add(req)
+    lastActivity = Date.now()
+  }
+  const onDone = (req: Request) => {
+    pending.delete(req)
+    lastActivity = Date.now()
+  }
+  page.on('request', onRequest)
+  page.on('requestfinished', onDone)
   page.on('requestfailed', onDone)
 
-  return new Promise((resolve, reject) => {  
-    const start = Date.now()  
-    const cleanup = () => {  
-      clearInterval(interval)  
-      page.off('request', onRequest)  
-      page.off('requestfinished', onDone)  
-      page.off('requestfailed', onDone)  
-    }  
-    const interval = setInterval(() => {  
-      if (pending.size === 0 && Date.now() - lastActivity >= idleTime) {  
-        cleanup()  
-        resolve()  
-      } else if (Date.now() - start > timeout) {  
-        cleanup()  
-        reject(new Error(`waitForNetworkIdle timed out after ${timeout}ms (${pending.size} pending)`))  
-      }  
-    }, 100)  
-  })  
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const cleanup = () => {
+      clearInterval(interval)
+      page.off('request', onRequest)
+      page.off('requestfinished', onDone)
+      page.off('requestfailed', onDone)
+    }
+    const interval = setInterval(() => {
+      if (pending.size === 0 && Date.now() - lastActivity >= idleTime) {
+        cleanup()
+        resolve()
+      } else if (Date.now() - start > timeout) {
+        cleanup()
+        reject(new Error(`waitForNetworkIdle timed out after ${timeout}ms (${pending.size} pending)`))
+      }
+    }, 100)
+  })
 }
 ```
 
-### **4.17 Test data**
+### 4.17 Test data
 
 test-data/users/<persona>.json: one file per persona. Store **IDs and names only**, never credentials.
 
 ```json
-{  
-  "label": "Sales Rep",  
-  "id": "<005xxxxxxxxxxxxxxx>",  
-  "name": "<Full Name>",  
-  "username": "<sales.rep@company.com.sandbox>",  
-  "profile": "<Profile Name>",  
-  "accountId": "<001xxxxxxxxxxxxxxx>",  
-  "accountName": "<An account this persona owns/can see>"  
+{
+  "label": "Sales Rep",
+  "id": "<005xxxxxxxxxxxxxxx>",
+  "name": "<Full Name>",
+  "username": "<sales.rep@company.com.sandbox>",
+  "profile": "<Profile Name>",
+  "accountId": "<001xxxxxxxxxxxxxxx>",
+  "accountName": "<An account this persona owns/can see>"
 }
 
 test-data/<feature>.json: form inputs and expected values. Use arrays for data-driven tests.
@@ -983,53 +983,53 @@ test-data/<feature>.json: form inputs and expected values. Use arrays for data-d
 ```
 
 ```json
-{  
-  "cases": [  
-    { "testLabel": "Web origin, high priority", "origin": "Web", "priority": "High", "expectedStatus": "New" },  
-    { "testLabel": "Phone origin, low priority", "origin": "Phone", "priority": "Low", "expectedStatus": "New" }  
-  ]  
+{
+  "cases": [
+    { "testLabel": "Web origin, high priority", "origin": "Web", "priority": "High", "expectedStatus": "New" },
+    { "testLabel": "Phone origin, low priority", "origin": "Phone", "priority": "Low", "expectedStatus": "New" }
+  ]
 }
 
 Import them statically: import * as salesRep from '../../test-data/users/sales-rep.json'.
 ```
 
-### **4.18 tests/smoke/smoke.spec.ts: the first spec to get green**
+### 4.18 `tests/smoke/smoke.spec.ts`: the first spec to get green
 
 ```ts
-import { test, expect } from '../../fixtures/base.fixtures'  
-import { Page } from '@playwright/test'  
-import { BasePage } from '../../pages/BasePage'  
-import { requiredEnv } from '../../config/env'  
+import { test, expect } from '../../fixtures/base.fixtures'
+import { Page } from '@playwright/test'
+import { BasePage } from '../../pages/BasePage'
+import { requiredEnv } from '../../config/env'
 import * as salesRep from '../../test-data/users/sales-rep.json'
 
-const automationUsername = requiredEnv('SF_USERNAME')  
-let adminPage: Page  
+const automationUsername = requiredEnv('SF_USERNAME')
+let adminPage: Page
 let basePage: BasePage
 
-test.describe('Smoke - session and navigation', () => {  
-  test.beforeAll(async ({ createTestContext }) => {  
-    const ctx = await createTestContext()  
-    adminPage = ctx.userPage  
-    basePage = new BasePage(adminPage)  
+test.describe('Smoke - session and navigation', () => {
+  test.beforeAll(async ({ createTestContext }) => {
+    const ctx = await createTestContext()
+    adminPage = ctx.userPage
+    basePage = new BasePage(adminPage)
   })
 
-  test('Automation user lands on Lightning home @smoke', async () => {  
-    await basePage.openHomePage()  
-    await expect(adminPage).toHaveURL(/\/lightning\/page\/home/)  
-    await expect(adminPage.locator('#oneHeader')).toBeVisible()  
+  test('Automation user lands on Lightning home @smoke', async () => {
+    await basePage.openHomePage()
+    await expect(adminPage).toHaveURL(/\/lightning\/page\/home/)
+    await expect(adminPage.locator('#oneHeader')).toBeVisible()
   })
 
-  test('API session can run SOQL as the automation user @smoke', async ({ sfApi }) => {  
-    const me = await sfApi.queryOne(`SELECT Id, Username FROM User WHERE Username = '${automationUsername}'`)  
-    expect(me?.Username).toBe(automationUsername)  
+  test('API session can run SOQL as the automation user @smoke', async ({ sfApi }) => {
+    const me = await sfApi.queryOne(`SELECT Id, Username FROM User WHERE Username = '${automationUsername}'`)
+    expect(me?.Username).toBe(automationUsername)
   })
 
-  test('Login As switches the context to a persona @smoke', async ({ createTestContext }) => {  
-    const { userPage, setupPage } = await createTestContext()  
-    await setupPage.loginAsUser(salesRep.id)  
-    // Lightning shows a "Logged in as <Name>" banner while impersonating  
-    await expect(userPage.getByText(`Logged in as ${salesRep.name}`)).toBeVisible()  
-  })  
+  test('Login As switches the context to a persona @smoke', async ({ createTestContext }) => {
+    const { userPage, setupPage } = await createTestContext()
+    await setupPage.loginAsUser(salesRep.id)
+    // Lightning shows a "Logged in as <Name>" banner while impersonating
+    await expect(userPage.getByText(`Logged in as ${salesRep.name}`)).toBeVisible()
+  })
 })
 
 If the org has no personas yet, delete the third test; test-data/users/sales-rep.json is then not needed.
@@ -1037,7 +1037,7 @@ If the org has no personas yet, delete the third test; test-data/users/sales-rep
 
 ---
 
-**5\. Bring-up and verification, step by step**
+## 5. Bring-up and verification, step by step
 
 Do these in order. Each step has a pass criterion. Don't move on until it passes.
 
@@ -1055,12 +1055,12 @@ Steps 4-7 talk to Salesforce. If you're an AI in a sandbox, **ask the user to ru
 
 ---
 
-**6\. Authentication troubleshooting**
+## 6. Authentication troubleshooting
 
 | Symptom (from step 4) | Cause | Fix   |
 | :---- | :---- | :---- |
 | invalid_grant / user hasn't approved this consumer | User not pre-authorized for the app | §3.2 Policies: *Admin approved users are pre-authorized*, and add the user's profile or permission set |
-| invalid_grant / audience is invalid | Wrong aud | Sandbox → https\://test.salesforce.com; prod/dev → https\://login.salesforce.com. Check that SF_MY_DOMAIN_URL contains .sandbox. for sandboxes |
+| invalid_grant / audience is invalid | Wrong aud | Sandbox → https://test.salesforce.com; prod/dev → https://login.salesforce.com. Check that SF_MY_DOMAIN_URL contains .sandbox. for sandboxes |
 | invalid_client_id / invalid_client | Wrong Consumer Key, or the app hasn't propagated yet | Re-copy the key; wait 10 minutes |
 | invalid_grant / invalid assertion or JWT signature verification failed | The private key doesn't match the uploaded cert | Re-upload sf_jwt.crt generated with the same sf_jwt.key |
 | invalid_grant / authentication failure | Username wrong (sandbox usernames usually end in .<sandboxname>), user inactive, or **USER env var collision** | Fix SF_USERNAME |
@@ -1073,12 +1073,12 @@ Steps 4-7 talk to Salesforce. If you're an AI in a sandbox, **ask the user to ru
 **Frontdoor fallback.** Replace step 3 of auth.setup.ts (the cookie injection) with this:
 
 ```ts
-const context = await browser.newContext()  
-const page = await context.newPage()  
-// frontdoor.jsp exchanges the session id for a full set of UI cookies across all Salesforce domains  
-await page.goto(  
-  `${SF_MY_DOMAIN_URL}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}` +  
-    `&retURL=${encodeURIComponent('/lightning/page/home')}`  
+const context = await browser.newContext()
+const page = await context.newPage()
+// frontdoor.jsp exchanges the session id for a full set of UI cookies across all Salesforce domains
+await page.goto(
+  `${SF_MY_DOMAIN_URL}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}` +
+    `&retURL=${encodeURIComponent('/lightning/page/home')}`
 )
 
 Keep steps 4-5 as they are.
@@ -1086,288 +1086,288 @@ Keep steps 4-5 as they are.
 
 ---
 
-**7\. Conventions for writing tests**
+## 7. Conventions for writing tests
 
 These rules are **mandatory**. They make tests readable to people and AIs and keep them stable against a shared org.
 
-### **7.1 File placement and naming**
+### 7.1 File placement and naming
 
-> * Specs: tests/<feature-area>/<flow>.spec.ts (kebab-case). One feature area per folder.  
-> * Page objects: pages/<feature-area>/<Thing>Page.ts (PascalCase), or <Thing>Modal.ts for modals.  
-> * Test data: test-data/<feature-area>.json or test-data/<feature-area>/<flow>.json.  
-> * Personas: test-data/users/<persona>.json.
+- Specs: tests/<feature-area>/<flow>.spec.ts (kebab-case). One feature area per folder.
+- Page objects: pages/<feature-area>/<Thing>Page.ts (PascalCase), or <Thing>Modal.ts for modals.
+- Test data: test-data/<feature-area>.json or test-data/<feature-area>/<flow>.json.
+- Personas: test-data/users/<persona>.json.
 
-### **7.2 Canonical spec structure**
+### 7.2 Canonical spec structure
 
 ```ts
-import { test, expect } from '../../fixtures/base.fixtures' // ALWAYS this, never '@playwright/test' for test/expect  
-import { Page } from '@playwright/test'                       // types only  
-import { SalesforceApi } from '../../helpers/salesforceApi'  
-import { CasesPage } from '../../pages/cases/CasesPage'  
-import { Utils } from '../../utils/utils'  
-import { TEST_DATA_PREFIX } from '../../config/env'  
-import * as salesRep from '../../test-data/users/sales-rep.json'  
+import { test, expect } from '../../fixtures/base.fixtures' // ALWAYS this, never '@playwright/test' for test/expect
+import { Page } from '@playwright/test'                       // types only
+import { SalesforceApi } from '../../helpers/salesforceApi'
+import { CasesPage } from '../../pages/cases/CasesPage'
+import { Utils } from '../../utils/utils'
+import { TEST_DATA_PREFIX } from '../../config/env'
+import * as salesRep from '../../test-data/users/sales-rep.json'
 import * as caseData from '../../test-data/cases.json'
 
-let userPage: Page  
-let casesPage: CasesPage  
+let userPage: Page
+let casesPage: CasesPage
 let sfApi: SalesforceApi
 
-test.describe('Cases - creation by sales rep', () => {  
-  test.beforeAll(async ({ createTestContext, sfApi: api }) => {  
-    sfApi = api  
-    // 1\. Pre-cleanup leftovers from earlier failed runs. API calls run as the automation user,  
-    //    so this works regardless of UI persona  
+test.describe('Cases - creation by sales rep', () => {
+  test.beforeAll(async ({ createTestContext, sfApi: api }) => {
+    sfApi = api
+    // 1. Pre-cleanup leftovers from earlier failed runs. API calls run as the automation user,
+    //    so this works regardless of UI persona
     await sfApi.deleteWhere('Case', `Subject LIKE '${TEST_DATA_PREFIX}%'`)
 
-    // 2\. Context + persona  
-    const ctx = await createTestContext()  
-    userPage = ctx.userPage  
+    // 2. Context + persona
+    const ctx = await createTestContext()
+    userPage = ctx.userPage
     await ctx.setupPage.loginAsUser(salesRep.id)
 
-    // 3\. Page objects + app  
-    casesPage = new CasesPage(userPage)  
-    await casesPage.switchToApp('<App Name>')  
+    // 3. Page objects + app
+    casesPage = new CasesPage(userPage)
+    await casesPage.switchToApp('<App Name>')
   })
 
-  test.beforeEach(async () => {  
-    await casesPage.openListView('Case')  
-    await casesPage.waitLoadSpinnerHidden()  
+  test.beforeEach(async () => {
+    await casesPage.openListView('Case')
+    await casesPage.waitLoadSpinnerHidden()
   })
 
-  for (const data of caseData.cases) {  
-    test(`Verify a ${data.testLabel} case is created with status ${data.expectedStatus} @cases`, async () => {  
-      // Arrange  
+  for (const data of caseData.cases) {
+    test(`Verify a ${data.testLabel} case is created with status ${data.expectedStatus} @cases`, async () => {
+      // Arrange
       const subject = Utils.uniqueName('Case')
 
-      // Act  
+      // Act
       const caseId = await casesPage.createCase({ ...data, subject })
 
-      // Assert (UI)  
-      await expect(casesPage.recordHeaderTitle).toHaveText(subject)  
-      // Assert (backend): poll, because triggers/flows can update the record asynchronously  
-      await expect  
-        .poll(async () => (await sfApi.getRecord('Case', caseId, ['Status'])).Status, { timeout: 30_000 })  
-        .toBe(data.expectedStatus)  
-    })  
-  }  
+      // Assert (UI)
+      await expect(casesPage.recordHeaderTitle).toHaveText(subject)
+      // Assert (backend): poll, because triggers/flows can update the record asynchronously
+      await expect
+        .poll(async () => (await sfApi.getRecord('Case', caseId, ['Status'])).Status, { timeout: 30_000 })
+        .toBe(data.expectedStatus)
+    })
+  }
 })
 ```
 
-### **7.3 Rules**
+### 7.3 Rules
 
 **Structure**
 
-> * Import test and expect from fixtures/base.fixtures. Import Playwright *types* from @playwright/test.  
-> * Module-level let for pages and contexts. Assign them in beforeAll. **Don't close contexts by hand**; the fixture does it.  
-> * Call createTestContext() **once per persona per describe block**. For multiple personas in one file, give each its own describe block, or create two contexts in the same beforeAll.  
-> * Persona loops: for (const user of users) { test.describe(\\... as ${user.label}`, () => {...}) }`.  
-> * beforeEach navigates by direct URL, then waits for spinners. Tests must not depend on where the previous test left the page.  
-> * Mark the body with // Arrange, // Act, and // Assert comments. Use test.step() for long flows.  
-> * When tests must share state (create → edit → delete), use test.describe.configure({ mode: 'serial' }) inside a nested describe and say why in a comment.
+- Import test and expect from fixtures/base.fixtures. Import Playwright *types* from @playwright/test.
+- Module-level let for pages and contexts. Assign them in beforeAll. **Don't close contexts by hand**; the fixture does it.
+- Call createTestContext() **once per persona per describe block**. For multiple personas in one file, give each its own describe block, or create two contexts in the same beforeAll.
+- Persona loops: ``for (const user of users) { test.describe(`... as ${user.label}`, () => {...}) }``.
+- beforeEach navigates by direct URL, then waits for spinners. Tests must not depend on where the previous test left the page.
+- Mark the body with // Arrange, // Act, and // Assert comments. Use test.step() for long flows.
+- When tests must share state (create → edit → delete), use test.describe.configure({ mode: 'serial' }) inside a nested describe and say why in a comment.
 
 **Naming and tags**
 
-> * Test titles describe behavior: 'Verify <actor/thing> <does/has> <outcome>'.  
-> * Tags go at the end of the title: @smoke (critical path, fast) and @<feature>. Run them with --grep @smoke.
+- Test titles describe behavior: 'Verify <actor/thing> <does/has> <outcome>'.
+- Tags go at the end of the title: @smoke (critical path, fast) and @<feature>. Run them with --grep @smoke.
 
 **Data**
 
-> * Every record a test creates is named with Utils.uniqueName(...) (prefix Autotest).  
-> * **Pre-cleanup** in beforeAll deletes leftovers by prefix through the API. **Always await cleanup calls.**  
-> * Prefer creating prerequisite records **through the API** (sfApi.create). Use the UI only for the behavior under test.  
-> * Hardcoded record IDs and URLs live in test-data/ only, never in specs or page objects.  
-> * Assume other people (and parallel workers) use the same org. Never assert on "the first row" or on global counts.
+- Every record a test creates is named with Utils.uniqueName(...) (prefix Autotest).
+- **Pre-cleanup** in beforeAll deletes leftovers by prefix through the API. **Always await cleanup calls.**
+- Prefer creating prerequisite records **through the API** (sfApi.create). Use the UI only for the behavior under test.
+- Hardcoded record IDs and URLs live in test-data/ only, never in specs or page objects.
+- Assume other people (and parallel workers) use the same org. Never assert on "the first row" or on global counts.
 
 **Reliability**
 
-> * **No page.waitForTimeout()** in specs or page objects. Wait on a condition: expect(...), locator.waitFor(), waitForURL, or expect.poll.  
-> * Call waitLoadSpinnerHidden() after navigation and after saves.  
-> * Use web-first assertions (await expect(locator).toHaveText(...)), not expect(await locator.textContent()).  
-> * try/catch is allowed **only** for documented Lightning quirks (lookup dropdown not opening, list needing a refresh). Keep the inner timeout short, and leave a comment naming the quirk.  
-> * Don't use { force: true } unless a real overlay blocks a visible element (dual-listbox items do this). Add a comment.
+- **No page.waitForTimeout()** in specs or page objects. Wait on a condition: expect(...), locator.waitFor(), waitForURL, or expect.poll.
+- Call waitLoadSpinnerHidden() after navigation and after saves.
+- Use web-first assertions (await expect(locator).toHaveText(...)), not expect(await locator.textContent()).
+- try/catch is allowed **only** for documented Lightning quirks (lookup dropdown not opening, list needing a refresh). Keep the inner timeout short, and leave a comment naming the quirk.
+- Don't use { force: true } unless a real overlay blocks a visible element (dual-listbox items do this). Add a comment.
 
 **Page objects**
 
-> * Constructor takes Page. Every locator is a readonly member assigned in the constructor.  
-> * Parameterized locators are readonly x: (arg: string) => Locator.  
-> * Methods only for multi-step interactions (createCase, addTeamMember). Don't wrap a single click.  
-> * Creation methods **return** what they created (id, name, or the filled data object).  
-> * Extend BasePage to get navigation, spinner, toast, and app helpers.  
-> * Reuse and extend existing page objects before creating new ones. Search pages/ first.
+- Constructor takes Page. Every locator is a readonly member assigned in the constructor.
+- Parameterized locators are readonly x: (arg: string) => Locator.
+- Methods only for multi-step interactions (createCase, addTeamMember). Don't wrap a single click.
+- Creation methods **return** what they created (id, name, or the filled data object).
+- Extend BasePage to get navigation, spinner, toast, and app helpers.
+- Reuse and extend existing page objects before creating new ones. Search pages/ first.
 
 ---
 
-**8\. Salesforce Lightning interaction cookbook**
+## 8. Salesforce Lightning interaction cookbook
 
 Salesforce Lightning uses Aura and LWC components, open shadow DOM (Playwright CSS and role locators pierce it automatically), lots of async rendering, and some legacy iframes. These patterns are proven. **Always confirm the exact markup in the live org.**
 
-### **8.1 Locator priority**
+### 8.1 Locator priority
 
-> 1. getByRole(role, { name }), scoped to a container (page.getByRole('dialog'))  
-> 2. getByLabel('Field Label') for standard record forms  
-> 3. Stable attributes: [data-id=…], [data-label="Column"], [data-value=…], [title="…"], [name="…"], [field-label="…"]  
-> 4. Component tag names: lightning-combobox, records-record-layout-item, c-my-custom-component  
-> 5. Text: filter({ hasText }), getByText(..., { exact: true })  
+1. getByRole(role, { name }), scoped to a container (page.getByRole('dialog'))
+2. getByLabel('Field Label') for standard record forms
+3. Stable attributes: [data-id=…], [data-label="Column"], [data-value=…], [title="…"], [name="…"], [field-label="…"]
+> 4. Component tag names: lightning-combobox, records-record-layout-item, c-my-custom-component
+> 5. Text: filter({ hasText }), getByText(..., { exact: true })
 > 6. CSS classes (.slds-…): last resort. **Never** use auto-generated ids (#input-123); they change on every render.
 
 Avoid .nth(), .first(), and .last() unless the position *is* the thing being tested.
 
-### **8.2 Standard record create/edit modal**
+### 8.2 Standard record create/edit modal
 
 ```ts
-const modal = page.getByRole('dialog')  
-await modal.getByRole('textbox', { name: 'Account Name' }).fill(name)   // name match is substring + case-insensitive  
-await modal.getByRole('button', { name: 'Save', exact: true }).click()  // exact: avoid "Save & New"  
-await expect(modal).toBeHidden()  
+const modal = page.getByRole('dialog')
+await modal.getByRole('textbox', { name: 'Account Name' }).fill(name)   // name match is substring + case-insensitive
+await modal.getByRole('button', { name: 'Save', exact: true }).click()  // exact: avoid "Save & New"
+await expect(modal).toBeHidden()
 const id = await basePage.currentRecordId('Account')
 
 If the object has **record types**, /lightning/o/<Obj>/new first shows a record-type picker: select the radio by label, then click **Next**.
 ```
 
-### **8.3 Picklists (lightning-combobox)**
+### 8.3 Picklists (lightning-combobox)
 
 ```ts
-await modal.getByRole('combobox', { name: 'Stage' }).click()  
-await page.getByRole('option', { name: 'Proposal', exact: true }).click()  
-// alternative when role names are ambiguous:  
-// page.locator('lightning-base-combobox-item[data-value="Proposal"]')  
-// assert the full list of offered values:  
+await modal.getByRole('combobox', { name: 'Stage' }).click()
+await page.getByRole('option', { name: 'Proposal', exact: true }).click()
+// alternative when role names are ambiguous:
+// page.locator('lightning-base-combobox-item[data-value="Proposal"]')
+// assert the full list of offered values:
 await expect(page.locator('lightning-base-combobox-item[role=option]')).toHaveText(['Pitch', 'Proposal'])
 ```
 
-### **8.4 Lookups (search-as-you-type)**
+### 8.4 Lookups (search-as-you-type)
 
 Lookups only search after a keystroke, so fill() often doesn't trigger results. Use pressSequentially with a small delay. A known quirk: the dropdown sometimes doesn't open. Deleting a character re-triggers it.
 
 ```ts
-async fillLookup(input: Locator, value: string) {  
-  await input.pressSequentially(value, { delay: 50 })  
-  const option = this.page.getByRole('option', { name: value }).first()  
-  try {  
-    await option.click({ timeout: 3_000 })  
-  } catch {  
-    // Lightning lookup quirk: results don't render for the last keystroke; retyping one char re-triggers search  
-    await input.press('Backspace')  
-    await input.press(value.slice(-1))  
-    await option.click()  
-  }  
+async fillLookup(input: Locator, value: string) {
+  await input.pressSequentially(value, { delay: 50 })
+  const option = this.page.getByRole('option', { name: value }).first()
+  try {
+    await option.click({ timeout: 3_000 })
+  } catch {
+    // Lightning lookup quirk: results don't render for the last keystroke; retyping one char re-triggers search
+    await input.press('Backspace')
+    await input.press(value.slice(-1))
+    await option.click()
+  }
 }
 ```
 
-### **8.5 Record detail fields**
+### 8.5 Record detail fields
 
 ```ts
-// read-only value on a record page  
-page.locator('records-record-layout-item[field-label="Status"]').locator('lightning-formatted-text, lightning-formatted-rich-text, a').first()  
-// highlights panel / page header title  
+// read-only value on a record page
+page.locator('records-record-layout-item[field-label="Status"]').locator('lightning-formatted-text, lightning-formatted-rich-text, a').first()
+// highlights panel / page header title
 page.locator('records-highlights2 h1, lightning-formatted-text[slot="primaryField"]').first()
 
 For backend values, assert through the API (§9). It's more reliable than reading formatted UI text.
 ```
 
-### **8.6 Datatables and list views**
+### 8.6 Datatables and list views
 
 ```ts
-const row = (text: string) => page.locator('table[role=grid] tbody tr').filter({ hasText: text })  
-await row(subject).locator('[data-label="Case Number"] a').click()  
-// list views cache: if a just-created record is missing, click Refresh once  
+const row = (text: string) => page.locator('table[role=grid] tbody tr').filter({ hasText: text })
+await row(subject).locator('[data-label="Case Number"] a').click()
+// list views cache: if a just-created record is missing, click Refresh once
 await page.getByRole('button', { name: 'Refresh' }).click()
 ```
 
-### **8.7 Toasts**
+### 8.7 Toasts
 
 ```ts
-await basePage.waitForToast(`Account "${name}" was created`)   // waits, then dismisses  
+await basePage.waitForToast(`Account "${name}" was created`)   // waits, then dismisses
 await expect(basePage.toast(/was saved/)).toBeVisible()        // or just assert
 ```
 
-### **8.8 Spinners**
+### 8.8 Spinners
 
 Call waitLoadSpinnerHidden() after navigation, saves, tab switches, and filter changes. If a page shows no spinner but loads data, wait for a specific element instead (await expect(row(name)).toBeVisible()).
 
-### **8.9 Links that open a new tab or window**
+### 8.9 Links that open a new tab or window
 
 Start waiting **before** you click, or the event can be missed:
 
 ```ts
-const [newPage] = await Promise.all([page.context().waitForEvent('page'), link.click()])  
-await newPage.waitForLoadState()  
+const [newPage] = await Promise.all([page.context().waitForEvent('page'), link.click()])
+await newPage.waitForLoadState()
 const detail = new CaseDetailPage(newPage)
 
 Close the extra page in afterEach.
 ```
 
-### **8.10 Iframes (Setup pages, Visualforce, classic content)**
+### 8.10 Iframes (Setup pages, Visualforce, classic content)
 
 ```ts
-const frame = page.frameLocator('iframe[title*="User:"]')        // Setup user detail  
-const vf = page.frameLocator('iframe[name^="vfFrameId"]')        // Visualforce in Lightning  
+const frame = page.frameLocator('iframe[title*="User:"]')        // Setup user detail
+const vf = page.frameLocator('iframe[name^="vfFrameId"]')        // Visualforce in Lightning
 await vf.getByRole('button', { name: 'Submit' }).click()
 ```
 
-### **8.11 Click intercepted by the sticky global header**
+### 8.11 Click intercepted by the sticky global header
 
 After a direct goto, the fixed Lightning header can sit on top of buttons near the top of the page, and a pointer click lands on the header instead:
 
 ```ts
-// sticky global header can overlay the record header's Edit button after a direct goto  
+// sticky global header can overlay the record header's Edit button after a direct goto
 await editButton.dispatchEvent('click')
 ```
 
-### **8.12 Dual listbox (move items between Available and Selected)**
+### 8.12 Dual listbox (move items between Available and Selected)
 
 ```ts
-await page.locator('lightning-dual-listbox li').filter({ hasText: userName }).click({ force: true }) // option sits under an overlay span  
+await page.locator('lightning-dual-listbox li').filter({ hasText: userName }).click({ force: true }) // option sits under an overlay span
 await page.getByRole('button', { name: 'Move selection to Selected' }).click()
 ```
 
-### **8.13 Dates and locale**
+### 8.13 Dates and locale
 
 Lightning date inputs accept the **persona's locale format**. For en_US that's Jan 15, 2026 (Utils.formatDateForInput). If personas use different locales, format per persona.
 
-### **8.14 App and tab navigation**
+### 8.14 App and tab navigation
 
-> * Switch apps with basePage.switchToApp('App Name') in beforeAll. Lightning remembers the last app per user.  
-> * Prefer direct URLs (§4.13) over clicking nav tabs. Tabs hidden under "More" break clicks.
+- Switch apps with basePage.switchToApp('App Name') in beforeAll. Lightning remembers the last app per user.
+- Prefer direct URLs (§4.13) over clicking nav tabs. Tabs hidden under "More" break clicks.
 
-### **8.15 Shadow DOM and getByText**
+### 8.15 Shadow DOM and getByText
 
 CSS and role locators pierce open shadow roots automatically. **XPath does not pierce shadow DOM.** Avoid XPath in Lightning.
 
 ---
 
-**9\. API / SOQL usage in tests**
+## 9. API / SOQL usage in tests
 
 ```ts
-// query (plain SOQL; the helper encodes it)  
+// query (plain SOQL; the helper encodes it)
 const cases = await sfApi.query(`SELECT Id, Status, Owner.Name FROM Case WHERE Subject = '${Utils.soqlEscape(subject)}'`)
 
-// create a prerequisite fast  
+// create a prerequisite fast
 const accountId = await sfApi.create('Account', { Name: Utils.uniqueName('Account'), Industry: 'Technology' })
 
-// update / delete  
-await sfApi.update('Opportunity', oppId, { StageName: 'Closed Won' })  
+// update / delete
+await sfApi.update('Opportunity', oppId, { StageName: 'Closed Won' })
 await sfApi.deleteWhere('Account', `Name LIKE '${TEST_DATA_PREFIX}%'`)
 
-// look up IDs at runtime instead of hardcoding (survives sandbox refresh)  
+// look up IDs at runtime instead of hardcoding (survives sandbox refresh)
 const owner = await sfApi.queryOne(`SELECT Id FROM User WHERE Username = '${salesRep.username}'`)
 
-// asynchronous automation (flows, triggers, platform events) → poll  
+// asynchronous automation (flows, triggers, platform events) → poll
 await expect.poll(async () => (await sfApi.getRecord('Case', id, ['OwnerId'])).OwnerId, { timeout: 30_000 }).toBe(queueId)
 
 Gotchas:
 ```
 
-> * In SOQL LIKE, both % and _ are wildcards.  
-> * Some fields can't be filtered in WHERE (long text, encrypted, some formula fields; one org even refused Opportunity.Name). Filter by Id or another field, then check in code.  
-> * Delete children before parents when there's no cascade. Some objects can't be deleted by non-admins, which is one more reason API cleanup runs as the automation user.  
-> * SalesforceApi.fromPage(page) runs calls as the impersonated persona. Use it only to test that persona's *API* permissions. Login-As sessions sometimes can't call the API.  
+> * In SOQL LIKE, both % and _ are wildcards.
+> * Some fields can't be filtered in WHERE (long text, encrypted, some formula fields; one org even refused Opportunity.Name). Filter by Id or another field, then check in code.
+> * Delete children before parents when there's no cascade. Some objects can't be deleted by non-admins, which is one more reason API cleanup runs as the automation user.
+> * SalesforceApi.fromPage(page) runs calls as the impersonated persona. Use it only to test that persona's *API* permissions. Login-As sessions sometimes can't call the API.
 > * Record type Ids differ between orgs. Query them: SELECT Id FROM RecordType WHERE SobjectType='Case' AND DeveloperName='Support'.
 
 ---
 
-**10\. Debugging failing tests**
+## 10. Debugging failing tests
 
 | Tool | Command   |
 | :---- | :---- |
@@ -1380,38 +1380,38 @@ Gotchas:
 
 The fixture prints these on failure. Paste them to the AI:
 
-> * [FAIL_URL]: where each page was  
-> * [ARIA_SNAPSHOT]: an accessibility tree of the page, usually enough to fix a locator  
+> * [FAIL_URL]: where each page was
+> * [ARIA_SNAPSHOT]: an accessibility tree of the page, usually enough to fix a locator
 > * [HTTP_ERROR] and [CONSOLE_ERR]: backend and LWC errors (a 400 from /aura? often means a validation rule fired)
 
 Triage order for a failure: (1) Is the data still valid (record deleted, sandbox refreshed)? (2) Did the locator change (check the ARIA snapshot)? (3) Is it timing (spinner, async flow)? Fix it with a proper wait, not a retry or sleep. (4) Is it a real bug? Then report it and keep the test red.
 
 ---
 
-**11\. AI-assisted test authoring (MCP servers + workflow)**
+## 11. AI-assisted test authoring (MCP servers + workflow)
 
-### **11.1 .mcp.json (repo root; git-ignore it if it holds personal aliases)**
+### 11.1 `.mcp.json (repo root; git-ignore it if it holds personal aliases)**
 
 ```json
-{  
-  "mcpServers": {  
-    "playwright": {  
-      "command": "npx",  
-      "args": [  
-        "-y",  
-        "@playwright/mcp@<pinned-version>",  
-        "--isolated",  
-        "--storage-state", "playwright/.auth/user.json",  
-        "--allowed-origins",  
-        "https\://*.salesforce.com;https\://*.force.com;https\://*.salesforce-setup.com;https\://*.sfdcstatic.com;https\://*.visualforce.com",  
-        "--block-service-workers"  
-      ]  
-    },  
-    "salesforce": {  
-      "command": "npx",  
-      "args": ["-y", "@salesforce/mcp@<pinned-version>", "--orgs", "<sf-cli-alias>", "--toolsets", "orgs,data"]  
-    }  
-  }  
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@<pinned-version>",
+        "--isolated",
+        "--storage-state", "playwright/.auth/user.json",
+        "--allowed-origins",
+        "https://*.salesforce.com;https://*.force.com;https://*.salesforce-setup.com;https://*.sfdcstatic.com;https://*.visualforce.com",
+        "--block-service-workers"
+      ]
+    },
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@salesforce/mcp@<pinned-version>", "--orgs", "<sf-cli-alias>", "--toolsets", "orgs,data"]
+    }
+  }
 }
 ```
 
@@ -1426,106 +1426,107 @@ Triage order for a failure: (1) Is the data still valid (record deleted, sandbox
 >
 > * Pin both MCP package versions. Unpinned `npx -y` upgrades have broken setups before.
 
-### **11.2 Workflow for each new test (AI)**
+### 11.2 Workflow for each new test (AI)**
 
-> 1. Restate the scenario: persona, steps, UI assertions, backend assertions.  
-> 2. Search pages/ and helpers/ for anything you can reuse.  
-> 3. Confirm the data model with Salesforce MCP or SOQL: object and field API names, picklist values, record types.  
-> 4. Inspect the live page with Playwright MCP, logged in as the right persona if visibility differs, and collect locators following §8.1.  
-> 5. Write or extend page objects, then test data, then the spec, following §7.  
-> 6. npm run typecheck.  
-> 7. Ask the user to run npx playwright test <file> --project=chromium and paste the output.  
-> 8. Fix failures using [ARIA_SNAPSHOT] and [HTTP_ERROR], then repeat. Don't add sleeps or retries to make it pass.  
+> 1. Restate the scenario: persona, steps, UI assertions, backend assertions.
+> 2. Search pages/ and helpers/ for anything you can reuse.
+> 3. Confirm the data model with Salesforce MCP or SOQL: object and field API names, picklist values, record types.
+> 4. Inspect the live page with Playwright MCP, logged in as the right persona if visibility differs, and collect locators following §8.1.
+> 5. Write or extend page objects, then test data, then the spec, following §7.
+> 6. npm run typecheck.
+> 7. Ask the user to run npx playwright test <file> --project=chromium and paste the output.
+> 8. Fix failures using [ARIA_SNAPSHOT] and [HTTP_ERROR], then repeat. Don't add sleeps or retries to make it pass.
 > 9. Report what you covered, what you didn't, and anything flaky or suspicious.
 
-### **11.3 Prompt template (for the user)**
+### 11.3 Prompt template (for the user)**
 
-Write a Playwright test following CLAUDE.md and docs/SALESFORCE_PLAYWRIGHT_BOOTSTRAP_GUIDE.md §7-§9.  
-Persona: test-data/users/<persona>.json  
-App: <App Name>  
-Steps:  
-1\. <...>  
-2\. <...>  
-UI assertions: <...>  
-Backend assertions (SOQL): object <Obj>, fields <Field__c = value>  
-Output: tests/<feature>/<flow>.spec.ts  
+``` and docs/SALESFORCE_PLAYWRIGHT_BOOTSTRAP_GUIDE.md §7-§9.
+Persona: test-data/users/<persona>.json
+App: <App Name>
+Steps:
+1. <...>
+2. <...>
+UI assertions: <...>
+Backend assertions (SOQL): object <Obj>, fields <Field__c = value>
+Output: tests/<feature>/<flow>.spec.ts
 Inspect the live UI with the Playwright MCP for locators; confirm field names with the Salesforce MCP.
+```
 
 ---
 
-**12\. CI/CD**
+## 12. CI/CD
 
 Principles:
 
-> * Secrets (SF_CLIENT_ID, SF_USERNAME, the private key) come from the CI secret store. The key can be a **file path** or the **PEM contents**; auth.setup.ts handles both.  
-> * Set CI=true. That turns on headless mode, retries, and forbidOnly.  
-> * Publish test-results/junit-results.xml, and archive playwright-report/ and test-results/.  
-> * Schedule nightly runs. Running on every push is usually too slow and too noisy for a shared org.  
+> * Secrets (SF_CLIENT_ID, SF_USERNAME, the private key) come from the CI secret store. The key can be a **file path** or the **PEM contents**; auth.setup.ts handles both.
+> * Set CI=true. That turns on headless mode, retries, and forbidOnly.
+> * Publish test-results/junit-results.xml, and archive playwright-report/ and test-results/.
+> * Schedule nightly runs. Running on every push is usually too slow and too noisy for a shared org.
 > * Split long suites per area with separate npm scripts (for example test:cases), so each pipeline stays under its timeout.
 
-### **12.1 GitHub Actions example**
+### 12.1 GitHub Actions example**
 
 ```yaml
-name: ui-regression  
-on:  
-  schedule: [{ cron: '0 9 * * *' }]  
-  workflow_dispatch:  
-jobs:  
-  test:  
-    runs-on: ubuntu-latest  
-    timeout-minutes: 180  
-    env:  
-      CI: 'true'  
-      SF_MY_DOMAIN_URL: ${{ vars.SF_MY_DOMAIN_URL }}  
-      SF_USERNAME: ${{ secrets.SF_USERNAME }}  
-      SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}  
-      SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}        # PEM contents  
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  
-    steps:  
-      - uses: actions/checkout@v4  
-      - uses: actions/setup-node@v4  
-        with: { node-version: 20, cache: npm }  
-      - run: npm ci  
-      - run: npx playwright install --with-deps chromium  
-      - run: npm run typecheck  
-      - run: npx playwright test --project=chromium  
-      - if: always()  
-        uses: actions/upload-artifact@v4  
-        with:  
-          name: playwright-report  
-          path: |  
-            playwright-report/  
+name: ui-regression
+on:
+  schedule: [{ cron: '0 9 * * *' }]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      CI: 'true'
+      SF_MY_DOMAIN_URL: ${{ vars.SF_MY_DOMAIN_URL }}
+      SF_USERNAME: ${{ secrets.SF_USERNAME }}
+      SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+      SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}        # PEM contents
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npx playwright test --project=chromium
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
             test-results/
 ```
 
-### **12.2 Shell-script style (Jenkins, internal CI that mounts secrets as files)**
+### 12.2 Shell-script style (Jenkins, internal CI that mounts secrets as files)**
 
 ```bash
-#!/bin/bash  
-set +x                                             # never echo secrets  
-export CI=true  
-export SF_USERNAME=$(cat "$SECRETS_PATH/SF_USERNAME")  
-export SF_CLIENT_ID=$(cat "$SECRETS_PATH/SF_CLIENT_ID")  
-export SF_JWT_KEY="$SECRETS_PATH/SF_JWT_KEY"       # path to the mounted key file  
+#!/bin/bash
+set +x                                             # never echo secrets
+export CI=true
+export SF_USERNAME=$(cat "$SECRETS_PATH/SF_USERNAME")
+export SF_CLIENT_ID=$(cat "$SECRETS_PATH/SF_CLIENT_ID")
+export SF_JWT_KEY="$SECRETS_PATH/SF_JWT_KEY"       # path to the mounted key file
 set -Eeuo pipefail
 
-npm ci --no-fund --no-audit  
-npx playwright install --with-deps chromium  
+npm ci --no-fund --no-audit
+npx playwright install --with-deps chromium
 npm run test:slack
 ```
 
 Optional: strip skipped tests from JUnit so dashboards show only executed tests (the reference suite did this):
 
 ```bash
-python3 - <<'EOF'  
-import xml.etree.ElementTree as ET  
-p = './test-results/junit-results.xml'  
-tree = ET.parse(p)  
-for suite in tree.getroot().iter('testsuite'):  
-    for case in list(suite):  
-        if case.find('skipped') is not None:  
-            suite.remove(case)  
-tree.write(p, xml_declaration=True, encoding='unicode')  
+python3 - <<'EOF'
+import xml.etree.ElementTree as ET
+p = './test-results/junit-results.xml'
+tree = ET.parse(p)
+for suite in tree.getroot().iter('testsuite'):
+    for case in list(suite):
+        if case.find('skipped') is not None:
+            suite.remove(case)
+tree.write(p, xml_declaration=True, encoding='unicode')
 EOF
 ```
 
@@ -1535,7 +1536,7 @@ EOF
 
 Create `CLAUDE.md` at the repo root (and copy this guide to `docs/SALESFORCE_PLAYWRIGHT_BOOTSTRAP_GUIDE.md`). Fill in the placeholders.
 
-```markdown
+````markdown
 # CLAUDE.md
 
 ## Project overview
@@ -1545,12 +1546,14 @@ Playwright + TypeScript UI automation for <Business Unit>'s Salesforce Lightning
 
 ## Commands
 
+```bash
 npm run test:auth                                   # JWT login only → playwright/.auth/
 npm test                                            # all tests, chromium
 npm run test:smoke                                  # @smoke
 npx playwright test tests/<area>/<file>.spec.ts --project=chromium
 npx playwright test --project=chromium --grep "title"
 npm run typecheck && npm run format
+```
 
 Config comes from `.env` (see `.env.example`): SF_MY_DOMAIN_URL, SF_USERNAME, SF_CLIENT_ID, SF_JWT_KEY.
 Browser/Salesforce commands don't work from the AI sandbox. Ask the user to run them (`! <cmd>`) and paste the output.
@@ -1571,7 +1574,7 @@ Browser/Salesforce commands don't work from the AI sandbox. Ask the user to run 
 - Locators: role/label → data-attributes/title → component tags → text → classes. No XPath, no auto-generated ids.
 - Tags at end of test title: `@smoke`, `@<feature>`.
 - Apps under test: <App 1>, <App 2>. Personas: <list>.
-```
+````
 
 ---
 
